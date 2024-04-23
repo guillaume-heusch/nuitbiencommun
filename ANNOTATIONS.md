@@ -87,3 +87,7 @@ After running CRAFT on your folder, you will see a new directory called `result`
 * A .jpg file: the frame with red bounding boxes around the detected text areas
 * A _mask.jpg: the mask containing the character occurence probability map
 * A .txt file: contains the coordinates of the bounding boxes
+
+### Eliminate irrelevant / false detections
+
+
