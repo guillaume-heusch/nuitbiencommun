@@ -3,16 +3,14 @@
 
 import csv
 import logging
-import os
 import sys
+from pathlib import Path
 
 import click
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon
-
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 
@@ -59,7 +57,9 @@ def load_image(image_filename: str) -> np.ndarray:
     return image
 
 
-def get_detections_filename(image_filename: Path, detections_dir: Path) -> Path:
+def get_detections_filename(
+    image_filename: Path, detections_dir: Path
+) -> Path:
     """
     Build and retrieve the filename of the
     txt file containing the CRAFT detections,
@@ -83,9 +83,8 @@ def get_detections_filename(image_filename: Path, detections_dir: Path) -> Path:
         the file containing the CRAFT detections
 
     """
-    ext = image_filename.suffix
     detections_file = Path("res_" + image_filename.name)
-    detections_file = detections_file.with_suffix('.txt')
+    detections_file = detections_file.with_suffix(".txt")
     detections_file = detections_dir / detections_file
     return detections_file
 
@@ -140,6 +139,9 @@ def show_and_ask_for_detections(image: np.ndarray, detections: list) -> list:
     for line in detections:
 
         fig, ax = plt.subplots(1, figsize=(16, 9))
+        fig.suptitle(
+            "Check the detection (green polygon), hit 'q' and go back to the terminal"
+        )
         ax.set_xticks([])
         ax.set_yticks([])
         ax.imshow(image)
@@ -165,7 +167,7 @@ def show_and_ask_for_detections(image: np.ndarray, detections: list) -> list:
 
 
 def write_valid_detections(detections_filename: str, detections: list):
-    """ 
+    """
     Write the detections to keep in a csv file.
 
     The format of the detection is a polygon with 4 corners and
@@ -185,7 +187,9 @@ def write_valid_detections(detections_filename: str, detections: list):
             writer.writerow(d)
 
 
-def write_image_with_detections(image: np.ndarray, detections: list, img_file: Path):
+def write_image_with_detections(
+    image: np.ndarray, detections: list, img_file: Path
+):
     """
     Write the image with the provided detections as polygons
 
@@ -205,15 +209,26 @@ def write_image_with_detections(image: np.ndarray, detections: list, img_file: P
         ys = [d[i] for i in range(len(d)) if i % 2 == 1]
         assert len(xs) == len(ys)
         for i in range(-1, (len(xs) - 1), 1):
-            cv2.line(image_with_detections, (xs[i], ys[i]), (xs[i+1], ys[i+1]), (0, 255, 0), 5)
+            cv2.line(
+                image_with_detections,
+                (xs[i], ys[i]),
+                (xs[i + 1], ys[i + 1]),
+                (0, 255, 0),
+                5,
+            )
 
     plt.imshow(image_with_detections)
+    plt.title("Final detections (hit 'q' to close)")
     plt.show()
-    image_with_detections = cv2.cvtColor(image_with_detections, cv2.COLOR_RGB2BGR)
+    image_with_detections = cv2.cvtColor(
+        image_with_detections, cv2.COLOR_RGB2BGR
+    )
     cv2.imwrite(str(img_file), image_with_detections)
 
 
-def get_corrected_annotation_file(corrected_annotations_dir: Path, image_file: Path) -> Path:
+def get_corrected_annotation_file(
+    corrected_annotations_dir: Path, image_file: Path
+) -> Path:
     """
     Get the path for the new, corrected annotation file
 
@@ -240,7 +255,9 @@ def get_corrected_annotation_file(corrected_annotations_dir: Path, image_file: P
 @click.argument("detections-dir")
 @click.argument("corrected-annotations-dir")
 @click.argument("annotated-images-dir")
-@click.option("-s", "--step", default=10, type=int, help="the step between frames")
+@click.option(
+    "-s", "--step", default=10, type=int, help="the step between frames"
+)
 def process(**kwargs):
     """
     Show detections, and prompt the user to keep it (or not).
@@ -265,11 +282,18 @@ def process(**kwargs):
         )
 
         detections_file = get_detections_filename(img_file, detections_dir)
-        corrected_annotations_file = get_corrected_annotation_file(corrected_annotations_dir, img_file)
-        image_with_detections_file = annotated_images_dir / Path(img_file.name) 
+        corrected_annotations_file = get_corrected_annotation_file(
+            corrected_annotations_dir, img_file
+        )
+        image_with_detections_file = annotated_images_dir / Path(img_file.name)
 
-        if corrected_annotations_file.is_file() and image_with_detections_file.is_file():
-            logging.warning(f"annotation and image files already exists for {img_file.name}, skipping !")
+        if (
+            corrected_annotations_file.is_file()
+            and image_with_detections_file.is_file()
+        ):
+            logging.warning(
+                f"annotation and image files already exists for {img_file.name}, skipping !"
+            )
             continue
 
         detections = load_detections(detections_file)
@@ -280,7 +304,9 @@ def process(**kwargs):
         image = load_image(str(img_file))
         detections_to_keep = show_and_ask_for_detections(image, detections)
         write_valid_detections(corrected_annotations_file, detections_to_keep)
-        write_image_with_detections(image, detections_to_keep, image_with_detections_file)
+        write_image_with_detections(
+            image, detections_to_keep, image_with_detections_file
+        )
 
 
 if __name__ == "__main__":
