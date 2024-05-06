@@ -90,4 +90,35 @@ After running CRAFT on your folder, you will see a new directory called `result`
 
 ### Eliminate irrelevant / false detections
 
+Since CRAFT is a text area detector, it will not only detect the panels, but also other area containing text. For this reason,
+the detection should be validated. For this purpose, a script has been made to help you sort annotations (i.e. keep the relevant ones
+and eliminate the others). You should launch the script like this:
 
+```shell
+python src/visualization/show_annotations.py {folder_with_frames} {result_CRAFT} {corrected_annotations} {images_with_detection}
+```
+
+where:
+
+* `{folder_with_frames}` is the directory containing the extracted frames
+* `{result_folder_from_CRAFT}` is the directory containing the CRAFT result (typically `result`, located where the previous script was launched)
+* `{corrected_annotations}` is a folder where the new, corrected annotations will be written
+* `{images_with_detection}` is a folder where images with relevant detections overlayed will be stored
+
+When launching the script, the following will happen:
+
+1. the image, with the first detection overlayed is displayed. You should look at the detection and decide if it's relevant or not
+2. now close the image (hit the "q" key) and go back to the terminal.
+3. answer the prompt whether you would like to keep the detection or not
+4. the image, with the second detection overlayed is displayed, and the process is the same
+5. this is done until all CRAFT detections have been shown
+6. at the end, you will see the image with just the relevant detection
+7. this image will be saved in the `{images_with_detection}` directory (and the corresponding annotations in the `{corrected_annotations}` directory)
+
+Now, another image will be displayed (by default, the step in frame processing is 10, but you can modify this by launching the script with the `--step` option, i.e. :
+
+```shell
+python src/visualization/show_annotations.py --step 5 {folder_with_frames} {result_CRAFT} {corrected_annotations} {images_with_detection}
+```
+
+Note also that you can stop the script (i.e. CTRL+C): what you have done will still be saved (and skipped the next time you relaunch the same command)
