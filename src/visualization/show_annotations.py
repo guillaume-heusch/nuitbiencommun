@@ -217,6 +217,7 @@ def write_image_with_detections(
                 5,
             )
 
+    plt.figure(figsize=(16, 9))
     plt.imshow(image_with_detections)
     plt.title("Final detections (hit 'q' to close)")
     plt.show()
