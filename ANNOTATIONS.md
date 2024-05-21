@@ -132,7 +132,7 @@ Since CRAFT is not perfect, it will also miss some panels. So, to get annotation
 **A few important things though:**
 
 - The images you should upload are the ones in the `{images_with_detection}` folder created before. Here you already have the detections from CRAFT outlined (in green), so you don't need to annotate the already detected panels.
-- For annotations, you must use the "polygon" with 4 points: it's better than the bounding box, since it allows non-rectangular regions
+- For annotations, you must use the "polygon" with 4 points: it's better than the bounding box, since it allows non-rectangular regions. Also, **make sure to name your annotation "panel"**: the subsequent script assumes this name when looking for polygons in the XML file !
 
 Now, I let you go through all the images of the sequence, and draw nice polygons around not-detected panels ;) Note that you don't need to be super precise (as you may have seen, CRAFT is not that precise on panels, and biased towards the inside).
 
