@@ -157,15 +157,15 @@ where:
 Now that we have both the (corrected) CRAFT annotations and the CVAT annotations, we should merge them to reach a final annotation file for each image. This is done with the following script:
 
 ```shell
-python src/data/aggregate_annotations.py {craft-corrected-annotations} {cvat-annotations} {final-annotations}
+python src/data/aggregate_annotations.py {craft-corrected-annotations} {cvat-annotations} {final-annotations} {frames}
 ```
 
 where:
 
 * `{craft-corrected-annotations}` is the first annotation folder created from CRAFT annotations 
 * `{cvat-annotations}` is the second folder created from CVAT annotations
-
-And {final-annotations} is the folder containing the final annotations !
+* `{final-annotations}` is the folder to write the final annotations !
+* `{frames}` is the folder containing the frames as extracted with ffmpeg (for display/debug purposes)
 
 
 
