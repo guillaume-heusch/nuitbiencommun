@@ -2,20 +2,23 @@
 # -*- coding: utf-8 -*-
 
 import csv
+import logging
 from pathlib import Path
 
 import click
 import cv2
 import numpy as np
-
 from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon
+
+logging.basicConfig(level=logging.INFO)
+
 
 def read_annotation_file(filename: Path) -> list:
     """
     Reads an annotation file containing polygons
     and returns the list of annotations for polygons
-   
+
     Parameters
     ----------
     filename: Path
@@ -27,11 +30,12 @@ def read_annotation_file(filename: Path) -> list:
 
     """
     polygons = []
-    with open(filename, 'r') as file:
+    with open(filename, "r") as file:
         csvreader = csv.reader(file)
         for row in csvreader:
             polygons.append(row)
     return polygons
+
 
 def show_annotations_on_frame(frame_filename, polygons):
     """
@@ -49,9 +53,8 @@ def show_annotations_on_frame(frame_filename, polygons):
         image = cv2.imread(str(frame_filename))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     except cv2.error:
-        logging.error("Unable to load image {}".format(image_filename))
-   
-    
+        logging.error("Unable to load image {}".format(frame_filename))
+
     fig, ax = plt.subplots(1, figsize=(16, 9))
     ax.set_xticks([])
     ax.set_yticks([])
@@ -68,8 +71,6 @@ def show_annotations_on_frame(frame_filename, polygons):
         )
         ax.add_patch(poly)
     plt.show()
-
-
 
 
 @click.command()
@@ -91,13 +92,13 @@ def process(**kwargs):
     frames_dir = Path(kwargs["frames_dir"])
 
     final_annotation_dir.mkdir(exist_ok=True, parents=True)
-    n_frames_annotated= 0
+    n_frames_annotated = 0
     n_polygons_total = 0
 
     for cvat_file in sorted(cvat_annotation_dir.iterdir()):
-        
+
         if cvat_file.is_file() and cvat_file.suffix == ".txt":
-            
+
             craft_poly = []
             craft_file = craft_annotation_dir / cvat_file.name
             if craft_file.is_file():
@@ -111,19 +112,22 @@ def process(**kwargs):
         if len(all_polygons) > 0:
             n_frames_annotated += 1
             n_polygons_total += len(all_polygons)
-            print(f"{len(all_polygons)} annotated panels for {frame_filename.name}")
+            print(
+                f"{len(all_polygons)} annotated panels for {frame_filename.name}"
+            )
             show_annotations_on_frame(frame_filename, all_polygons)
         else:
             print(f"No annotations for {frame_filename.name}")
 
-        final_annotation_file = final_annotation_dir / cvat_file.name 
+        final_annotation_file = final_annotation_dir / cvat_file.name
         with open(final_annotation_file, "w") as csvfile:
             writer = csv.writer(csvfile)
             for p in all_polygons:
                 writer.writerow(p)
-        
+
     print(f"{n_frames_annotated} frames with annotations")
     print(f"{n_polygons_total} panels annotated")
+
 
 if __name__ == "__main__":
     process()

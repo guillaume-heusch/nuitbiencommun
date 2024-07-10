@@ -51,7 +51,6 @@ def process(**kwargs):
             for k1, v1 in poly.attrib.items():
                 if k1 == "points":
                     panels_coordinates.append(v1)
-                    points = v1
                     n_polygons += 1
 
         # turn the polygons from x1,y1;x2,y2;x3,y3;x4,y4
