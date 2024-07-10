@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nuitbiencommun"
+requires-python = ">=3.10"
+version = "0.1.0"
+authors = [
+    {name = "Guillaume Heusch", email = "guillaume.heusch@gmail.com"},
+]  
+description = "Panel detection for Nuit du Bien Commun"
+readme = "README.md"
+
+classifiers = [
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+]
+
+dependencies = [
+    "click",
+    "numpy",
+    "matplotlib",
+    "opencv-python",
+    "hydra-core",
+    "torch",
+    "torchvision",
+    "pytorch-lightning",
+    "sphinx",
+    "sphinx_rtd_theme",
+    "tqdm",
+    "albumentations >= 1.4.0",
+]
+
+[project.optional-dependencies]
+develop = [
+    "black",
+    "isort",
+    "flake8",
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+line_length = 79
