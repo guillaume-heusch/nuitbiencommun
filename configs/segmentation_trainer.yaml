@@ -1,0 +1,23 @@
+train_dir: "./data/training-segmentation" 
+save_model_dir: "./models"
+model:
+  name : "DeepLabV3Plus"
+  encoder_name: "timm-efficientnet-b5" 
+  encoder_weights: "imagenet" 
+data:
+  extension: ".png"
+  image_size: [224, 224]
+  augment:
+    shift_limit: 0.1
+    scale_limit: 0.1
+    rotate_limit: 30
+    ssr_probability: 0.8
+    brightness_limit: 0.3
+    contrast_limit: 0.3
+    bc_probability: 0.5
+  num_workers: 1
+train:
+    learning_rate: 0.001
+    batch_size: 8
+    max_epochs: 2 
+    epoch_refresh_rate: 2
