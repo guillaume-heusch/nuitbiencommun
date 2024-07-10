@@ -58,8 +58,8 @@ def process(**kwargs):
                     f"linking {src_annotation_file} to {dst_annotation_file}"
                 )
                 logging.info("-" * 50)
-            os.symlink(src_annotation_file, dst_annotation_file)
-            os.symlink(src_image_file, dst_image_file)
+            os.symlink(src_annotation_file.resolve(), dst_annotation_file)
+            os.symlink(src_image_file.resolve(), dst_image_file)
 
 
 if __name__ == "__main__":
