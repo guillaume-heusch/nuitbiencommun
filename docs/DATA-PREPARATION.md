@@ -6,7 +6,7 @@ To make things as simple as possible, all training data (i.e. images + annotatio
 To do so and to avoid unecessary space consumption, the data will be symlinked thanks to the following script:
 
 ```shell
-python src/tools/symlink_annotated_data.py {dir-with-frames} {dir-with-annotations} {training-dir}
+python tools/data/symlink_annotated_data.py {dir-with-frames} {dir-with-annotations} {training-dir}
 ```
 
 where:
@@ -23,7 +23,7 @@ is a black and white image (i.e. a mask) where the panels to be detected are whi
 To go from the "raw" annotations (i.e. polygons) to a mask image, you should use the following script:
 
 ```shell
-python src/tools/create_mask_image_from_polygons.py {training-dir} {segmentation-training-dir}
+python tools/data/create_mask_image_from_polygons.py {training-dir} {segmentation-training-dir}
 ```
 
 where:

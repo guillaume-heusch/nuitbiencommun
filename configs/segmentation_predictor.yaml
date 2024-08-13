@@ -1,0 +1,7 @@
+image_filename:  "test-image.jpg"
+image_size: [224, 224]
+plot: True
+model:
+  ckpt_file: "models/model-epoch=09.ckpt"
+  encoder_name: "timm-efficientnet-b5"
+  encoder_weights: "imagenet"

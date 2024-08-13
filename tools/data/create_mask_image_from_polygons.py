@@ -41,7 +41,7 @@ def read_annotation_file(filename: Path) -> list:
 @click.argument("input_data_dir", type=click.Path(exists=True))
 @click.argument("output_data_dir", type=click.Path())
 @click.option(
-    "-e", "--ext", type=str, default=".png", help="extension of the image file"
+    "-e", "--ext", type=str, default=".jpg", help="extension of the image file"
 )
 @click.option("-v", "--verbose", count=True, help="print stuff")
 @click.option("-P", "--plot", count=True, help="plot stuff")

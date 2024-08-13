@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 @click.argument("annotations_dir", type=click.Path(exists=True))
 @click.argument("destination_dir", type=click.Path())
 @click.option(
-    "-e", "--ext", type=str, default=".png", help="extension of the image file"
+    "-e", "--ext", type=str, default=".jpg", help="extension of the image file"
 )
 @click.option("-v", "--verbose", count=True, help="print stuff")
 def process(**kwargs):
