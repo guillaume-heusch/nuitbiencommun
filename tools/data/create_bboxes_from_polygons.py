@@ -126,6 +126,9 @@ def process(**kwargs):
                 writer = csv.writer(file)
                 for box in boxes:
                     writer.writerow(["0"] + box)
+            
+            # symlink the image
+            os.symlink(image_file.resolve(), new_image_file)
     
     if verbose:
         logging.info(f"There is a total of {total_panels} annotated panels")
