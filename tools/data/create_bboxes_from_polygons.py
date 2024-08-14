@@ -70,6 +70,7 @@ def process(**kwargs):
     output_images_dir.mkdir(parents=True, exist_ok=True)
     output_annotations_dir.mkdir(parents=True, exist_ok=True)
 
+    total_panels = 0
     for annotation_file in sorted(annotations_dir.iterdir()):
 
         if annotation_file.is_symlink() and annotation_file.suffix == ".txt":
@@ -80,22 +81,21 @@ def process(**kwargs):
             image_file = images_dir / annotation_file.name
             image_file = image_file.with_suffix(image_file_extension)
             image = cv2.imread(str(image_file))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
             img_bbox = image.copy()
             polygons = read_annotation_file(annotation_file)
 
             boxes = []
     
-            print(f"There are {len(polygons)} boxes")
+            if verbose:
+                logging.info(f"There are {len(polygons)} panels")
+                total_panels += len(polygons)
+
             for p in polygons:
 
                 xs = [int(p[i]) for i in range(len(p)) if i % 2 == 0]
                 ys = [int(p[i]) for i in range(len(p)) if i % 2 == 1]
-
-                #print(xs)
-                #print(type(xs[0]))
-                #import sys
-                #sys.exit()
 
                 left = np.min(xs)
                 right = np.max(xs)
@@ -106,10 +106,8 @@ def process(**kwargs):
                 x = left
                 height = bottom - top
                 width = right - left
-
                 boxes.append([y, x, height, width])
 
-            print(boxes)
             if plot:
                 f, ax = plt.subplots(1, figsize=(16, 9))
                 ax.imshow(image)
@@ -123,8 +121,14 @@ def process(**kwargs):
             new_annotation_file = output_annotations_dir / annotation_file.name
             new_annotation_file = new_annotation_file.with_suffix(".csv")
 
-            #cv2.imwrite(str(new_annotation_file), mask)
-            #os.symlink(image_file.resolve(), new_image_file)
+            # write annotation file
+            with open(new_annotation_file, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                for box in boxes:
+                    writer.writerow(["0"] + box)
+    
+    if verbose:
+        logging.info(f"There is a total of {total_panels} annotated panels")
 
 
 if __name__ == "__main__":
