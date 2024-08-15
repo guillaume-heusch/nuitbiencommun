@@ -1,0 +1,10 @@
+train_dir: "./training-detection" 
+save_model_dir: "./fasterrcnn-models"
+data:
+  extension: ".jpg"
+  num_workers: 1
+train:
+    learning_rate: 0.001
+    batch_size: 16
+    max_epochs: 10
+    epoch_refresh_rate: 1
