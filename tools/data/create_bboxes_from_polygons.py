@@ -86,6 +86,10 @@ def process(**kwargs):
             img_bbox = image.copy()
             polygons = read_annotation_file(annotation_file)
 
+            if len(polygons) == 0:
+                logging.info("Skipping: no panels here")
+                continue
+
             boxes = []
     
             if verbose:
@@ -101,12 +105,9 @@ def process(**kwargs):
                 right = np.max(xs)
                 top = np.min(ys)
                 bottom = np.max(ys)
-
-                y = top
-                x = left
-                height = bottom - top
-                width = right - left
-                boxes.append([y, x, height, width])
+                
+                # for Faster RCNN in PyTorch, the format is [xmin, ymin, xmax, ymax]
+                boxes.append([left, top, right, bottom])
 
             if plot:
                 f, ax = plt.subplots(1, figsize=(16, 9))
@@ -122,10 +123,11 @@ def process(**kwargs):
             new_annotation_file = new_annotation_file.with_suffix(".csv")
 
             # write annotation file
+            # label is first, there is only one class, so label is always one
             with open(new_annotation_file, mode='w', newline='') as file:
                 writer = csv.writer(file)
                 for box in boxes:
-                    writer.writerow(["0"] + box)
+                    writer.writerow(["1"] + box)
             
             # symlink the image
             os.symlink(image_file.resolve(), new_image_file)
