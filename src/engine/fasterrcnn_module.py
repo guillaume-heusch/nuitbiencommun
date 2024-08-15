@@ -1,4 +1,5 @@
 import logging
+import torch
 
 import numpy as np
 import pytorch_lightning as pl
@@ -13,8 +14,8 @@ class FasterRCNNModule(pl.LightningModule):
     def __init__(self, pretrained_weights_path=None):
         super().__init__()
         self.model = self._get_model(num_classes=2)
+        self.model.train()
         self.validation_f_score = []
-
 
     def _get_model(self, num_classes: int, pretrained=True):
         """
@@ -50,63 +51,31 @@ class FasterRCNNModule(pl.LightningModule):
 
         return model
 
-    def forward(self, image):
-        """Runs inference."""
-        self.model.eval()
-        output = self.model(image)
-        return output
+    def forward(self, images, target=None):
+        return self.model(images, targets)
 
     def training_step(self, batch, batch_idx):
-        image, target = batch
-        loss_dict = self.model(image, target)
+        images, targets = batch
+        loss_dict = self.model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
-
         batch_size = len(batch[0])
-        self.log_dict(loss_dict, batch_size=batch_size)
         self.log("train_loss", losses, batch_size=batch_size)
-
         return losses
 
     def validation_step(self, batch, batch_idx):
-        image, target = batch
-        output = self.model(image)
-        f_scores = self.evaluate()
-
+        images, targets = batch
+        # the model is not in train mode -> error
+        # it returns the predictions instead
+        # find a way to compute something else for validation
+        #loss_dict = self.model(images, targets)
+        #print(loss_dict)
+        #losses = sum(loss for loss in loss_dict.values())
+        #batch_size = len(batch[0])
+        #self.log("val_loss", losses, batch_size=batch_size)
+        #return losses
 
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
-
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
-
         return [optimizer], [lr_scheduler]
-
-    def evaluate(self, dataloader, device=torch.device('cpu')):
-        """
-        Evaluate the model on a dataset
-
-        Parameters
-        ----------
-        dataloader: :py:class:`torch.utils.data.DataLoader`
-          The dataloader for your validation data
-        device: :py:class:`torch.torch.device`
-          The device where the training is performed
-        verbosity: int
-          Verbosity level
-
-        """
-        self.network.eval()
-        true_positive = false_positive = false_negative = 0
-        for index, (image, target, _) in enumerate(dataloader):
-          if self.verbosity > 1:
-            print("Evaluating image {}/{}".format(index+1, len(dataloader)))
-          predictions = self.network(image)
-          stats = get_tp_fp_fn(image[0], predictions, target[0], verbosity=self.verbosity, plot=0)
-          for k, v in stats.items():
-            true_positive += v[0]
-            false_positive += v[1]
-            false_negative += v[2]
-
-        F1_score = compute_F1_score(true_positive, false_positive, false_negative)
-        return F1_score
-        
