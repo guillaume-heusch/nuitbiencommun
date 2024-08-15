@@ -1,16 +1,16 @@
 import logging
-import torch
 
 import numpy as np
 import pytorch_lightning as pl
-
+import torch
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.rpn import AnchorGenerator, RPNHead
 
+
 class FasterRCNNModule(pl.LightningModule):
-    """
-    """
+    """ """
+
     def __init__(self, pretrained_weights_path=None):
         super().__init__()
         self.model = self._get_model(num_classes=2)
@@ -47,7 +47,9 @@ class FasterRCNNModule(pl.LightningModule):
         in_features = model.roi_heads.box_predictor.cls_score.in_features
 
         # replace the pre-trained head with a new one
-        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+        model.roi_heads.box_predictor = FastRCNNPredictor(
+            in_features, num_classes
+        )
 
         return model
 
@@ -67,15 +69,19 @@ class FasterRCNNModule(pl.LightningModule):
         # the model is not in train mode -> error
         # it returns the predictions instead
         # find a way to compute something else for validation
-        #loss_dict = self.model(images, targets)
-        #print(loss_dict)
-        #losses = sum(loss for loss in loss_dict.values())
-        #batch_size = len(batch[0])
-        #self.log("val_loss", losses, batch_size=batch_size)
-        #return losses
+        # loss_dict = self.model(images, targets)
+        # print(loss_dict)
+        # losses = sum(loss for loss in loss_dict.values())
+        # batch_size = len(batch[0])
+        # self.log("val_loss", losses, batch_size=batch_size)
+        # return losses
 
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
-        optimizer = torch.optim.SGD(params, lr=0.005, momentum=0.9, weight_decay=0.0005)
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+        optimizer = torch.optim.SGD(
+            params, lr=0.005, momentum=0.9, weight_decay=0.0005
+        )
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer, step_size=3, gamma=0.1
+        )
         return [optimizer], [lr_scheduler]

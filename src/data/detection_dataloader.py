@@ -1,16 +1,15 @@
+import csv
 from pathlib import Path
 
 import albumentations as A
 import cv2
+import numpy as np
+import torch
 from albumentations.pytorch import ToTensorV2
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
-
-import csv
 from torchvision.transforms import functional as F
 
-import torch
-import numpy as np
 
 class DetectionDataLoader(Dataset):
     """
@@ -23,6 +22,7 @@ class DetectionDataLoader(Dataset):
         the list of (albumentations) transforms
 
     """
+
     def __init__(self, cfg: DictConfig, transforms=None):
         """
         Init function.
@@ -43,21 +43,23 @@ class DetectionDataLoader(Dataset):
         )
         image_folder = Path(self.dataset_path) / "images"
         self.images_list = [
-            image_folder / Path(annotation_path.stem).with_suffix(cfg.data.extension)
+            image_folder
+            / Path(annotation_path.stem).with_suffix(cfg.data.extension)
             for annotation_path in self.annotations_list
         ]
 
         self.images_list.sort()
         self.annotations_list.sort()
 
-
     def _get_train_transform(self):
-        """
-        """
+        """ """
         return A.Compose(
-                [A.Normalize(), ToTensorV2(p=1.0)], 
-                bbox_params={'format': 'pascal_voc', 'label_fields': ['class_labels']}
-                )
+            [A.Normalize(), ToTensorV2(p=1.0)],
+            bbox_params={
+                "format": "pascal_voc",
+                "label_fields": ["class_labels"],
+            },
+        )
 
     def __getitem__(self, idx):
         """
@@ -79,7 +81,7 @@ class DetectionDataLoader(Dataset):
         img_path = self.images_list[idx]
         img = cv2.imread(str(img_path))  # image is BGR
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        #image = F.to_tensor(img)
+        # image = F.to_tensor(img)
 
         annotation_path = self.annotations_list[idx]
         assert annotation_path.stem == img_path.stem
@@ -90,27 +92,30 @@ class DetectionDataLoader(Dataset):
             boxes = []
             labels = []
             for index, row in enumerate(reader):
-                boxes.append([int(row[1]),int(row[2]),int(row[3]),int(row[4])])
+                boxes.append(
+                    [int(row[1]), int(row[2]), int(row[3]), int(row[4])]
+                )
                 labels.append(int(row[0]))
 
-            #boxes = torch.as_tensor(boxes, dtype=torch.float32)
+            # boxes = torch.as_tensor(boxes, dtype=torch.float32)
             labels = torch.as_tensor(labels, dtype=torch.int64)
             image_id = torch.tensor([idx])
 
-
             if self.transforms is not None:
-                transformed = self.transforms(image=img, bboxes=boxes, class_labels=labels)
-                image = transformed['image']
-                boxes = transformed['bboxes']
+                transformed = self.transforms(
+                    image=img, bboxes=boxes, class_labels=labels
+                )
+                image = transformed["image"]
+                boxes = transformed["bboxes"]
 
             # WARNING: a check on the bounding box should be made here
             # be sure it's fully in the image for instance
 
-            #if np.min(boxes) < 0:
+            # if np.min(boxes) < 0:
             #    print(f"WARNING, something wrong with bboxes {boxes}")
             #    print(f"{annotation_path}")
 
-            #print(boxes)
+            # print(boxes)
             boxes = torch.as_tensor(boxes, dtype=torch.float32)
 
             target = {}

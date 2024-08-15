@@ -8,6 +8,7 @@ from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from src.data.detection_dataloader import DetectionDataLoader
 from src.engine.fasterrcnn_module import FasterRCNNModule
 
+
 @hydra.main(
     version_base=None,
     config_path="../../configs",
@@ -15,8 +16,8 @@ from src.engine.fasterrcnn_module import FasterRCNNModule
 )
 def run_training(cfg: DictConfig):
     """
-    Launch the training of a model performing
-    detection of panels with numbers 
+    Launch the training of a Faster RCNN performing
+    detection of panels with numbers
 
     """
     detector = FasterRCNNModule(cfg)
@@ -31,6 +32,8 @@ def run_training(cfg: DictConfig):
         num_workers=cfg.data.num_workers,
         collate_fn=collate_fn,
     )
+
+    # TODO: the validation set should be different ;)
     val_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=1,
@@ -40,6 +43,7 @@ def run_training(cfg: DictConfig):
         collate_fn=collate_fn,
     )
 
+    # TODO: monitor should be on validation F-score
     model_checkpoint = ModelCheckpoint(
         dirpath=cfg.save_model_dir,
         filename="model-{epoch:02d}",
@@ -62,8 +66,8 @@ def run_training(cfg: DictConfig):
 
     trainer.fit(detector, train_loader, val_loader)
 
+
 def collate_fn(batch):
-    """Define a collate function to handle batches."""
     return tuple(zip(*batch))
 
 

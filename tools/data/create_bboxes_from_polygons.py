@@ -12,30 +12,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 
+from src.utils import read_annotation_file
+
+# TODO: improve logging
 logging.basicConfig(level=logging.INFO)
-
-
-def read_annotation_file(filename: Path) -> list:
-    """
-    Reads an annotation file containing polygons
-    and returns the list of annotations for polygons
-
-    Parameters
-    ----------
-    filename: Path
-
-    Returns
-    -------
-    list:
-        The list of polygons
-
-    """
-    polygons = []
-    with open(filename, "r") as file:
-        csvreader = csv.reader(file)
-        for row in csvreader:
-            polygons.append(row)
-    return polygons
 
 
 @click.command()
@@ -49,8 +29,14 @@ def read_annotation_file(filename: Path) -> list:
 def process(**kwargs):
     """
 
-    Load an image file and corresponding annotations
-    Create a mask image with the panels
+    Load images and corresponding annotations
+    Create new annotation files with bounding boxes
+
+    Input data directory must contain the subfolders:
+        - image
+        - annotations
+
+    Bounding boxes are in the form [xmin, ymin, xmax, ymax]
 
     """
     data_dir = Path(kwargs["input_data_dir"])
@@ -73,6 +59,7 @@ def process(**kwargs):
     total_panels = 0
     for annotation_file in sorted(annotations_dir.iterdir()):
 
+        # TODO: check if the test on symlink is really needed
         if annotation_file.is_symlink() and annotation_file.suffix == ".txt":
 
             if verbose:
@@ -82,22 +69,17 @@ def process(**kwargs):
             image_file = image_file.with_suffix(image_file_extension)
             image = cv2.imread(str(image_file))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            img_bbox = image.copy()
-            polygons = read_annotation_file(annotation_file)
-
-            if len(polygons) == 0:
-                logging.info("Skipping: no panels here")
-                continue
-
-            boxes = []
-    
-            if verbose:
-                logging.info(f"There are {len(polygons)} panels")
-                total_panels += len(polygons)
-            
             height, width, _ = image.shape
 
+            polygons = read_annotation_file(annotation_file)
+            if len(polygons) == 0:
+                logging.debug("Skipping: no panels here !")
+                continue
+
+            if verbose:
+                logging.debug(f"There are {len(polygons)} panels")
+
+            boxes = []
             for p in polygons:
 
                 xs = [int(p[i]) for i in range(len(p)) if i % 2 == 0]
@@ -107,25 +89,25 @@ def process(**kwargs):
                 right = np.max(xs)
                 top = np.min(ys)
                 bottom = np.max(ys)
-                
-                #if plot:
-                #    f, ax = plt.subplots(1, figsize=(16, 9))
-                #    ax.imshow(image)
-                #    rect = Rectangle((left, top), right-left, bottom-top, edgecolor='red', facecolor='none')
-                #    ax.add_patch(rect)
-                #    plt.show()
-
 
                 if left > 0 and top > 0 and right < width and bottom < height:
                     boxes.append([left, top, right, bottom])
+                    total_panels += 1
                 else:
-                    print("box not appended")
+                    logging.debug("box not considered: at the border")
 
             if plot:
                 f, ax = plt.subplots(1, figsize=(16, 9))
                 ax.imshow(image)
                 for b in boxes:
-                    rect = Rectangle((b[0], b[1]), b[2]-b[0], b[3]-b[1], edgecolor='red', facecolor='none')
+                    rect = Rectangle(
+                        (b[0], b[1]),
+                        b[2] - b[0],
+                        b[3] - b[1],
+                        edgecolor="red",
+                        facecolor="none",
+                        linewidth=2,
+                    )
                     ax.add_patch(rect)
                 plt.show()
 
@@ -134,16 +116,15 @@ def process(**kwargs):
             new_annotation_file = output_annotations_dir / annotation_file.name
             new_annotation_file = new_annotation_file.with_suffix(".csv")
 
-            # write annotation file
             # label is first, there is only one class, so label is always one
-            with open(new_annotation_file, mode='w', newline='') as file:
+            with open(new_annotation_file, mode="w", newline="") as file:
                 writer = csv.writer(file)
                 for box in boxes:
                     writer.writerow(["1"] + box)
-            
+
             # symlink the image
             os.symlink(image_file.resolve(), new_image_file)
-    
+
     if verbose:
         logging.info(f"There is a total of {total_panels} annotated panels")
 

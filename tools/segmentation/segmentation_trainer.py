@@ -17,7 +17,7 @@ from src.engine.segmentation_module import SegmentationModule
 def run_training(cfg: DictConfig):
     """
     Launch the training of a model performing
-    semantic segmentation of panels with numbers 
+    semantic segmentation of panels with numbers
 
     """
     segmenter = SegmentationModule(cfg)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import csv
 import logging
 import os
 from pathlib import Path
@@ -11,30 +10,10 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 
+from src.utils import read_annotation_file
+
+# TODO: improve logging
 logging.basicConfig(level=logging.INFO)
-
-
-def read_annotation_file(filename: Path) -> list:
-    """
-    Reads an annotation file containing polygons
-    and returns the list of annotations for polygons
-
-    Parameters
-    ----------
-    filename: Path
-
-    Returns
-    -------
-    list:
-        The list of polygons
-
-    """
-    polygons = []
-    with open(filename, "r") as file:
-        csvreader = csv.reader(file)
-        for row in csvreader:
-            polygons.append(row)
-    return polygons
 
 
 @click.command()
@@ -48,8 +27,12 @@ def read_annotation_file(filename: Path) -> list:
 def process(**kwargs):
     """
 
-    Load an image file and corresponding annotations
-    Create a mask image with the panels
+    Load image files and corresponding annotations
+    Create mask images with the panels
+
+    Input data directory must contain the subfolders:
+        - image
+        - annotations
 
     """
     data_dir = Path(kwargs["input_data_dir"])
@@ -71,6 +54,7 @@ def process(**kwargs):
 
     for annotation_file in sorted(annotations_dir.iterdir()):
 
+        # TODO: check if the test on symlink is really needed
         if annotation_file.is_symlink() and annotation_file.suffix == ".txt":
 
             if verbose:

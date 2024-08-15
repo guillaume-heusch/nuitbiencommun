@@ -17,7 +17,7 @@ from src.image_processing.normalize_image import (
 )
 def run_segmentation(cfg: DictConfig):
     """
-    Perform the segmentation of panels  
+    Perform the segmentation of panels
 
     """
     # load model
