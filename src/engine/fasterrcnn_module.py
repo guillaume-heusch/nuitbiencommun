@@ -59,7 +59,7 @@ class FasterRCNNModule(pl.LightningModule):
         loss_dict = self.model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
         batch_size = len(batch[0])
-        self.log("train_loss", losses, batch_size=batch_size)
+        self.log("train_loss", losses)
         return losses
 
     def validation_step(self, batch, batch_idx):

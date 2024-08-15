@@ -46,7 +46,7 @@ def run_training(cfg: DictConfig):
         every_n_epochs=1,
         save_top_k=3,
         save_on_train_epoch_end=True,
-        monitor="metrics/epoch/train_loss",
+        monitor="train_loss",
     )
 
     trainer = pl.Trainer(

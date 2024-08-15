@@ -1,0 +1,4 @@
+image_filename:  "test-image.jpg"
+plot: True
+model:
+  ckpt_file: "fasterrcnn-models/model-epoch=07.ckpt"

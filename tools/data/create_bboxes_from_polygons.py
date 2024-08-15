@@ -76,7 +76,7 @@ def process(**kwargs):
         if annotation_file.is_symlink() and annotation_file.suffix == ".txt":
 
             if verbose:
-                logging.info(f"Processing {annotation_file.name}")
+                logging.info(f"Processing {annotation_file}")
 
             image_file = images_dir / annotation_file.name
             image_file = image_file.with_suffix(image_file_extension)
@@ -95,6 +95,8 @@ def process(**kwargs):
             if verbose:
                 logging.info(f"There are {len(polygons)} panels")
                 total_panels += len(polygons)
+            
+            height, width, _ = image.shape
 
             for p in polygons:
 
@@ -106,14 +108,24 @@ def process(**kwargs):
                 top = np.min(ys)
                 bottom = np.max(ys)
                 
-                # for Faster RCNN in PyTorch, the format is [xmin, ymin, xmax, ymax]
-                boxes.append([left, top, right, bottom])
+                #if plot:
+                #    f, ax = plt.subplots(1, figsize=(16, 9))
+                #    ax.imshow(image)
+                #    rect = Rectangle((left, top), right-left, bottom-top, edgecolor='red', facecolor='none')
+                #    ax.add_patch(rect)
+                #    plt.show()
+
+
+                if left > 0 and top > 0 and right < width and bottom < height:
+                    boxes.append([left, top, right, bottom])
+                else:
+                    print("box not appended")
 
             if plot:
                 f, ax = plt.subplots(1, figsize=(16, 9))
                 ax.imshow(image)
                 for b in boxes:
-                    rect = Rectangle((b[1], b[0]), b[3], b[2], edgecolor='red', facecolor='none')
+                    rect = Rectangle((b[0], b[1]), b[2]-b[0], b[3]-b[1], edgecolor='red', facecolor='none')
                     ax.add_patch(rect)
                 plt.show()
 

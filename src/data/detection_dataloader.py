@@ -10,6 +10,7 @@ import csv
 from torchvision.transforms import functional as F
 
 import torch
+import numpy as np
 
 class DetectionDataLoader(Dataset):
     """
@@ -96,14 +97,20 @@ class DetectionDataLoader(Dataset):
             labels = torch.as_tensor(labels, dtype=torch.int64)
             image_id = torch.tensor([idx])
 
-            #print(boxes)
 
             if self.transforms is not None:
                 transformed = self.transforms(image=img, bboxes=boxes, class_labels=labels)
                 image = transformed['image']
                 boxes = transformed['bboxes']
 
-            print(boxes)
+            # WARNING: a check on the bounding box should be made here
+            # be sure it's fully in the image for instance
+
+            #if np.min(boxes) < 0:
+            #    print(f"WARNING, something wrong with bboxes {boxes}")
+            #    print(f"{annotation_path}")
+
+            #print(boxes)
             boxes = torch.as_tensor(boxes, dtype=torch.float32)
 
             target = {}
