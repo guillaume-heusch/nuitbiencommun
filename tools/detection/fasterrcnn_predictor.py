@@ -6,8 +6,16 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 from omegaconf import DictConfig
 
-from src.engine.fasterrcnn_module import FasterRCNNModule
+import torchvision
+import logging
 
+from src.engine.fasterrcnn_module import FasterRCNNModule
+from src.evaluate_utils import get_tp_fp_fn, compute_F1_score, keep_best_predictions
+from src.utils import read_annotation_file_for_detection
+
+from src.engine.compute_metrics import MetricsComputer
+
+logger = logging.getLogger("PREDICTOR")
 
 @hydra.main(
     version_base=None,
@@ -19,6 +27,8 @@ def run_detection(cfg: DictConfig):
     Perform the detection of panels using a fine-tuned Faster RCNN.
 
     """
+    logger.setLevel(level=logging.DEBUG)
+
     # load model
     detector = FasterRCNNModule.load_from_checkpoint(cfg.model.ckpt_file)
     detector.cpu()
@@ -34,10 +44,29 @@ def run_detection(cfg: DictConfig):
     image_batch = image_tensor.unsqueeze(0)
 
     predictions = detector.model(image_batch)
-    # there's one image in the batch, hence the 0
-    boxes = predictions[0]["boxes"].detach().numpy()
+
+    # only keep the best predictions
+    # Note: there's one image in the batch, hence the 0
+    #score_threshold = 0.3
+    #predictions[0] = keep_best_predictions(predictions[0], score_threshold)
+
+    # perform non-max suppression
+    #boxes = predictions[0]["boxes"]
+    #scores = predictions[0]["scores"]
+    #index_of_boxes_to_keep = torchvision.ops.nms(boxes, scores, 0.1)
+    #boxes = torch.index_select(boxes, 0, torch.LongTensor(index_of_boxes_to_keep))
+
+
+    # Compute metrics 
+    if cfg.annotation_filename is not None:
+        targets = read_annotation_file_for_detection(cfg.annotation_filename)
+        targets = [targets]
+        metrics_computer = MetricsComputer()
+        metrics_computer.run_on_batch(predictions, targets)
+
 
     if cfg.plot:
+        boxes = boxes.detach().numpy()
         f, ax = plt.subplots(1, figsize=(16, 9))
         ax.imshow(image_raw)
         for i in range(boxes.shape[0]):
@@ -52,6 +81,15 @@ def run_detection(cfg: DictConfig):
             )
             ax.add_patch(rect)
         plt.show()
+
+
+    #if targets is not None:
+    #    tp, fp, fn = get_tp_fp_fn(image_raw, predictions, targets, score_threshold=0.3, plot=1)
+    #    f_score = compute_F1_score(tp, fp, fn)
+    #    print(f_score)
+    #else:
+    #    _ = get_tp_fp_fn(image_raw, predictions, plot=1)
+
 
 
 if __name__ == "__main__":

@@ -4,17 +4,64 @@
 import logging
 import os
 
-logger = logging.getLogger("chardetrec")
+import torch
+
+from matplotlib import pyplot as plt
+import numpy as np
+from matplotlib.patches import Rectangle
 
 
-def get_corresponding_bounding_box(label, box, targets):
+logger = logging.getLogger("PREDICTOR")
+
+def keep_best_predictions(predictions: dict, score_threshold=0.5) -> dict:
     """
-    Return the ground truth bounding box given the label
+    Keep the best predictions: the ones for which the 
+    score is above the given threshold.
+
+    TODO: there must be a simpler way ...
 
     Parameters
     ----------
-    label: int
-      The detected label
+    predictions: dict
+        The predictions, as returned by the model
+    score_threshold: float
+        the score threshold (between 0 and 1)
+
+    Returns
+    -------
+    dict:
+        The predictions to keep
+
+    """
+    #print(predictions)
+    boxes = predictions["boxes"]
+    labels = predictions["labels"]
+    scores = predictions["scores"]
+    all_predictions = zip(boxes, labels, scores)
+
+    predictions_to_keep = {}
+    predictions_to_keep["boxes"] = []
+    predictions_to_keep["labels"] = []
+    predictions_to_keep["scores"] = []
+    for index, (box, label, score) in enumerate(all_predictions):
+        if score > score_threshold:
+            predictions_to_keep["boxes"].append(box)
+            predictions_to_keep["labels"].append(label)
+            predictions_to_keep["scores"].append(score)
+
+    predictions_to_keep["boxes"] = torch.vstack(predictions_to_keep["boxes"])
+    predictions_to_keep["labels"] = torch.Tensor(predictions_to_keep["labels"])
+    predictions_to_keep["scores"] = torch.Tensor(predictions_to_keep["scores"]).double()
+    #print(predictions_to_keep)
+    return predictions_to_keep
+
+def get_corresponding_bounding_box(box, targets):
+    """
+    Return the ground truth bounding box.
+    The ground truth bounding box is the one with the highest IoU
+
+    Parameters
+    ----------
     box: numpy.ndarray
       The detected bounding box
     targets: dict
@@ -23,41 +70,45 @@ def get_corresponding_bounding_box(label, box, targets):
     Returns
     -------
     numpy.ndarray:
-      The bounding box corresponding to the detection
-    int:
-      The ground truth label
+      The ground truth bounding box corresponding to the detection
     float:
-      The Intersection over Union value
+      The Intersection over Union (IoU) value
 
     """
-    candidates = {
-        "boxes": [],
-        "labels": [],
-    }  # candidates for gt boxes and labels (there may be more than one per label)
-    for gt_label, gt_box in zip(
-        targets["labels"].tolist(), targets["boxes"].tolist()
-    ):
-        if gt_label == label:
-            candidates["boxes"].append(gt_box)
-            candidates["labels"].append(gt_label)
+    ranked_boxes = {}
+    for gt_box in targets["boxes"]:
+        iou = compute_iou(np.array(gt_box), box.detach().numpy())
+        ranked_boxes[iou] = gt_box 
+    index = np.max(list(ranked_boxes.keys()))
+    return ranked_boxes[index], index
 
-    # if there is only one ground truth candidate, return it directly
-    if len(candidates["boxes"]) == 1:
-        iou = compute_iou(
-            np.array(candidates["boxes"][0]), box.detach().numpy()
-        )
-        return candidates["boxes"][0], candidates["labels"][0], iou
-    # if there is no ground truth candidate, this is a false positive
-    elif len(candidates["boxes"]) == 0:
-        return None, None, 0
-    # otherwise, get the gt_box with highest IoU
-    else:
-        ranked_boxes = {}
-        for b, l in zip(candidates["boxes"], candidates["labels"]):
-            iou = compute_iou(np.array(b), box.detach().numpy())
-            ranked_boxes[iou] = (b, l)
-        index = np.max(list(ranked_boxes.keys()))
-        return ranked_boxes[index][0], ranked_boxes[index][1], index
+
+def get_detection_box_with_highest_iou(gt_box, detections):
+    """
+    Get the detection having the highest IoU with the
+    provided ground truth bounding box
+
+    Parameters
+    ----------
+    gt_box: list
+        the ground truth bounding box
+    detections: list of torch.Tensors
+        the list contains the tuple (box, score)
+
+    Returns
+    -------
+    Tuple[torch.Tensor, torch.Tensor, int]:
+      The detected bounding box with the highest IoU, its score and its index
+    float:
+      The Intersection over Union (IoU) value
+
+    """
+    ranked_boxes = {}
+    for detection_index, (box, score) in enumerate(detections): 
+        iou = compute_iou(np.array(gt_box), box.detach().numpy())
+        ranked_boxes[iou] = (box, score, detection_index)
+    max_iou = np.max(list(ranked_boxes.keys()))
+    return ranked_boxes[max_iou], max_iou
 
 
 def compute_iou(box1, box2):
@@ -164,266 +215,179 @@ def get_tp_fp_fn(
       Number of true positives, false positives and false negatives
 
     """
-    ret = {}
-    for c in allowed_chars:
-        ret[c] = [0, 0, 0]  # TP, FP, FN
+    tp = 0
+    fp = 0
+    fn = 0
 
     boxes = predictions[0]["boxes"]
-    labels = predictions[0]["labels"]
     scores = predictions[0]["scores"]
 
     # sort the scores from lowest to highest (better for plotting)
-    zipped = list(zip(boxes, labels, scores))
-    sorted_detections = sorted(zipped, key=lambda x: x[2])
+    zipped = list(zip(boxes, scores))
+    sorted_detections = sorted(zipped, key=lambda x: x[1])
 
     # get the ground truth
     if target is not None:
-        gt_boxes = target["boxes"].tolist()
-        gt_labels = target["labels"].tolist()
-        logger.debug(
-            "There are {} detections (gt is {})".format(
-                len(boxes), len(gt_boxes)
-            )
-        )
+        gt_boxes = target["boxes"]
+        logger.debug("There are {} detections (gt is {})".format(len(boxes), len(gt_boxes)))
     else:
         logger.debug("There are {} detections".format(len(boxes)))
 
-    if savedir is not None:
-        if not os.path.isdir(savedir):
-            os.makedirs(savedir)
+    # go through all ground truth boxes
+    index_processed = []
+    for gt_box in gt_boxes:
 
-    if (savedir is not None) or plot:
-        display = np.moveaxis(img.numpy(), 0, -1)
-        fig, ax = plt.subplots(1, figsize=(16, 9))
-        fig.suptitle(image_name)
+        # get the detection having the biggest overlap with the ground truth
+        ((detection_box, detection_score), 
+         iou, 
+         detection_index
+         ) = get_detection_box_with_highest_iou(gt_box, sorted_detections)
+        print(detection_box)
+        print(detection_score)
+        print(iou)
+        import sys
+        sys.exit()
 
-        # display the ground truth
-        if target is not None:
-            for gt_box, label in zip(gt_boxes, gt_labels):
-                rect = Rectangle(
-                    (gt_box[0], gt_box[1]),
-                    (gt_box[2] - gt_box[0]),
-                    (gt_box[3] - gt_box[1]),
-                    ec="k",
-                    lw=2,
-                    facecolor="none",
-                )
-                ax.add_patch(rect)
-                ax.text(
-                    gt_box[0] + (0.5 * (gt_box[2] - gt_box[0])),
-                    gt_box[1] + (0.2 * (gt_box[3] - gt_box[1])),
-                    label_to_char[label],
-                    c="k",
-                )
+        # if there's not enough overlap, that's a miss (false negative)
+        if iou < iou_threshold:
+            fn += 1
 
-    box_color_tp = "cornflowerblue"
-    for b, l, s in sorted_detections:
+        #if iou > iou_threshold and score > score_threshold
 
-        # get the ground truth bbox corresponding to the found box, and the IoU
-        if target is not None:
+    # go through ground_truth boxes
+    #for b, s in sorted_detections:
 
-            gt_box, gt_label, iou = get_corresponding_bounding_box(
-                l.item(), b, target
-            )
-            b = b.detach().numpy()
+    #    # get the ground truth bbox corresponding to the found box, and the IoU
+    #    if target is not None:
 
-            # true positive
-            if (
-                (s >= score_threshold)
-                and (l.item() == l)
-                and (iou >= iou_threshold)
-            ):
-                ret[label_to_char[l.item()]][0] += 1
-                logger.debug("--------------------")
-                logger.debug(
-                    "Detection is {} ({:.2f}), with bounding box {}".format(
-                        label_to_char[l.item()], s, b
-                    )
-                )
-                logger.debug(
-                    "Got ground truth: bounding box {} with label {}".format(
-                        gt_box, label_to_char[gt_label]
-                    )
-                )
-                logger.debug("[TP] with IoU {:.2f}".format(iou))
-                if (savedir is not None) or plot:
-                    rect = Rectangle(
-                        (b[0], b[1]),
-                        (b[2] - b[0]),
-                        (b[3] - b[1]),
-                        ec="g",
-                        lw=2,
-                        facecolor="none",
-                    )
-                    ax.add_patch(rect)
-                    ax.text(
-                        b[0],
-                        b[1],
-                        label_to_char[l.item()]
-                        + " (IoU: {:.2f}, s: {:.2f})".format(iou, s),
-                        c="g",
-                    )
-            # false positive
-            if (s >= score_threshold) and (
-                (l.item() != l) or (iou < iou_threshold)
-            ):
-                ret[label_to_char[l.item()]][1] += 1
-                logger.debug("--------------------")
-                logger.debug(
-                    "Detection is {} ({:.2f}), with bounding box {}".format(
-                        label_to_char[l.item()], s, b
-                    )
-                )
-                if gt_box is not None and gt_label is not None:
-                    logger.debug(
-                        "Got ground truth: bounding box {} with label {}".format(
-                            gt_box, label_to_char[gt_label]
-                        )
-                    )
-                    logger.debug(
-                        "[FP] IoU is {:.2f}, label is {}".format(
-                            iou, label_to_char[l.item()]
-                        )
-                    )
-                else:
-                    logger.debug("[FP] There is nothing to detect here !")
-                if (savedir is not None) or plot:
-                    rect = Rectangle(
-                        (b[0], b[1]),
-                        (b[2] - b[0]),
-                        (b[3] - b[1]),
-                        ec="r",
-                        lw=2,
-                        facecolor="none",
-                    )
-                    ax.add_patch(rect)
-                    ax.text(
-                        b[0],
-                        b[1],
-                        label_to_char[l.item()]
-                        + " (IoU: {:.2f}, s: {:.2f})".format(iou, s),
-                        c="r",
-                    )
-            # false negative
-            if (
-                (s < score_threshold)
-                and (l.item() == l)
-                and (iou >= iou_threshold)
-            ):
-                ret[label_to_char[l.item()]][2] += 1
-                logger.debug("--------------------")
-                logger.debug(
-                    "Detection is {} ({:.2f}), with bounding box {}".format(
-                        label_to_char[l.item()], s, b
-                    )
-                )
-                logger.debug(
-                    "Got ground truth: bounding box {} with label {}".format(
-                        gt_box, label_to_char[gt_label]
-                    )
-                )
-                logger.debug(
-                    "[FN] IoU is {:.2f}, label is {}, but score is too low".format(
-                        iou, label_to_char[l.item()]
-                    )
-                )
-                if (savedir is not None) or plot:
-                    rect = Rectangle(
-                        (b[0], b[1]),
-                        (b[2] - b[0]),
-                        (b[3] - b[1]),
-                        ec="r",
-                        lw=2,
-                        facecolor="none",
-                    )
-                    ax.add_patch(rect)
-                    ax.text(
-                        b[0],
-                        b[1],
-                        label_to_char[l.item()]
-                        + " (IoU: {:.2f}, s: {:.2f})".format(iou, s),
-                        c="r",
-                    )
-            # true negative
-            if (s < score_threshold) and (
-                (l.item != l) or (iou < iou_threshold)
-            ):
-                logger.debug("--------------------")
-                logger.debug(
-                    "Detection is {} ({:.2f}), with bounding box {}".format(
-                        label_to_char[l.item()], s, b
-                    )
-                )
-                if gt_box is not None and gt_label is not None:
-                    logger.debug(
-                        "Got ground truth: bounding box {} with label {}".format(
-                            gt_box, label_to_char[gt_label]
-                        )
-                    )
-                    logger.debug(
-                        "[TN] There is no {} to detect here (and that's right, score is low) !".format(
-                            label_to_char[l.item()]
-                        )
-                    )
-                else:
-                    logger.debug(
-                        "[TN] There is nothing to detect here (and that's right, score is low) !"
-                    )
-                if ((savedir is not None) or plot) and show_tn:
-                    rect = Rectangle(
-                        (b[0], b[1]),
-                        (b[2] - b[0]),
-                        (b[3] - b[1]),
-                        ec="b",
-                        lw=2,
-                        facecolor="none",
-                    )
-                    ax.add_patch(rect)
-                    ax.text(
-                        b[0],
-                        b[1],
-                        label_to_char[l.item()] + " ({:.2f})".format(s),
-                        c="b",
-                    )
+    #        gt_box, iou = get_corresponding_bounding_box(b, target)
+    #        b = b.detach().numpy()
 
-        # there is no ground truth, so just plot detections and scores
-        else:
-            if (savedir is not None) or plot:
-                rect = Rectangle(
-                    (b[0], b[1]),
-                    (b[2] - b[0]),
-                    (b[3] - b[1]),
-                    ec=box_color_tp,
-                    lw=2,
-                    facecolor="none",
-                )
-                ax.add_patch(rect)
-                ax.text(
-                    b[0],
-                    b[1],
-                    label_to_char[l.item()] + " ({:.2f})".format(s),
-                    c=box_color_tp,
-                )
+    #        # true positive [TP]
+    #        if ((s >= score_threshold) and (iou >= iou_threshold)):
+    #            tp += 1
+    #            logger.debug("--------------------")
+    #            logger.debug(
+    #                "Detection score = {:.2f}, with bounding box {}".format(s, b)
+    #            )
+    #            logger.debug(
+    #                "Got ground truth: bounding box {}".format(gt_box)
+    #            )
+    #            logger.debug("[TP] with IoU {:.2f}".format(iou))
 
-    if (savedir is not None) or plot:
-        ax.imshow(display)
-        ax.set_xticks([])
-        ax.set_yticks([])
+    #            # plot true positive example in green
+    #            if (savedir is not None) or plot:
+    #                rect = Rectangle(
+    #                    (b[0], b[1]),
+    #                    (b[2] - b[0]),
+    #                    (b[3] - b[1]),
+    #                    ec="g",
+    #                    lw=2,
+    #                    facecolor="none",
+    #                )
+    #                ax.add_patch(rect)
+    #        
+    #        # false positive [FP] (something is detected but there's nothing)
+    #        if (s >= score_threshold) and (iou < iou_threshold):
+    #            fp += 1
+    #            logger.debug("--------------------")
+    #            logger.debug(
+    #                "Detection score = {:.2f}, with bounding box {}".format(s, b)
+    #            )
+    #            logger.debug(
+    #                "Got ground truth: bounding box {}".format(gt_box)
+    #            )
+    #            logger.debug(
+    #                "[FP] IoU is {:.2f} (too low)".format(iou)
+    #            )
+    #            
+    #            # plot false positive example in red
+    #            if (savedir is not None) or plot:
+    #                rect = Rectangle(
+    #                    (b[0], b[1]),
+    #                    (b[2] - b[0]),
+    #                    (b[3] - b[1]),
+    #                    ec="r",
+    #                    lw=2,
+    #                    facecolor="none",
+    #                )
+    #                ax.add_patch(rect)
+    #        
+    #        # false negative (something is not detected, but should have been)
+    #        if (s < score_threshold) and (iou >= iou_threshold):
+    #            fn += 1
+    #            logger.debug("--------------------")
+    #            logger.debug(
+    #                "Detection score = {:.2f}, with bounding box {}".format(s, b)
+    #            )
+    #            logger.debug(
+    #                "Got ground truth: bounding box {}".format(gt_box)
+    #            )
+    #            logger.debug(
+    #                "[FN] IoU is {:.2f}, but score is too low".format(iou)
+    #            )
 
-    # check if this image contains a faulty example:
-    faulty = False
-    for k, v in ret.items():
-        for i in range(1, 3):
-            if v[i] > 0:
-                faulty = True
+    #            # plot false negative example in yellow
+    #            if (savedir is not None) or plot:
+    #                rect = Rectangle(
+    #                    (b[0], b[1]),
+    #                    (b[2] - b[0]),
+    #                    (b[3] - b[1]),
+    #                    ec="y",
+    #                    lw=2,
+    #                    facecolor="none",
+    #                )
+    #                ax.add_patch(rect)
+    #        
+    #        # true negative (nothing detected where nothing should be detected)
+    #        # this happens with not confident enough detections (low score -> discarded)
+    #        if (s < score_threshold) and (iou < iou_threshold):
+    #            logger.debug("--------------------")
+    #            logger.debug(
+    #                "Detection score = {:.2f}, with bounding box {}".format(s, b)
+    #            )
+    #            logger.debug(
+    #                "Got ground truth: bounding box {}".format(gt_box)
+    #            )
+    #            logger.debug(
+    #                "[TN] There is nothing to detect here (and that's right, score is low) !"
+    #            )
+    #            
+    #            # plot true negative example in limegreen
+    #            if ((savedir is not None) or plot) and show_tn:
+    #                rect = Rectangle(
+    #                    (b[0], b[1]),
+    #                    (b[2] - b[0]),
+    #                    (b[3] - b[1]),
+    #                    ec="limegreen",
+    #                    lw=2,
+    #                    facecolor="none",
+    #                )
+    #                ax.add_patch(rect)
 
-    if savedir is not None:
-        if faulty and save_faulty:
-            plt.savefig(os.path.join(savedir, image_name))
-        else:
-            plt.savefig(os.path.join(savedir, image_name))
-    if plot:
-        plt.show()
-    plt.close()
+    #    # there is no ground truth, so just plot detections
+    #    else:
+    #        b = b.detach().numpy()
+    #        if (savedir is not None) or plot:
+    #            rect = Rectangle(
+    #                (b[0], b[1]),
+    #                (b[2] - b[0]),
+    #                (b[3] - b[1]),
+    #                ec="cornflowerblue",
+    #                lw=2,
+    #                facecolor="none",
+    #            )
+    #            ax.add_patch(rect)
 
-    return ret
+    #if (savedir is not None) or plot:
+    #    ax.imshow(display)
+    #    ax.set_xticks([])
+    #    ax.set_yticks([])
+
+    #if savedir is not None:
+    #    plt.savefig(os.path.join(savedir, image_name))
+    #if plot:
+    #    plt.show()
+    #plt.close()
+
+    return tp, fp, fn
