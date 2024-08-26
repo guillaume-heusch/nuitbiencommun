@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 
 from src.utils import read_annotation_file
+from src.utils import convert_polygons_to_bounding_boxes
 
 # TODO: improve logging
 logging.basicConfig(level=logging.INFO)
@@ -79,22 +80,22 @@ def process(**kwargs):
             if verbose:
                 logging.debug(f"There are {len(polygons)} panels")
 
-            boxes = []
-            for p in polygons:
+            boxes = convert_polygons_to_bounding_boxes(polygons)
+            #for p in polygons:
 
-                xs = [int(p[i]) for i in range(len(p)) if i % 2 == 0]
-                ys = [int(p[i]) for i in range(len(p)) if i % 2 == 1]
+            #    xs = [int(p[i]) for i in range(len(p)) if i % 2 == 0]
+            #    ys = [int(p[i]) for i in range(len(p)) if i % 2 == 1]
 
-                left = np.min(xs)
-                right = np.max(xs)
-                top = np.min(ys)
-                bottom = np.max(ys)
+            #    left = np.min(xs)
+            #    right = np.max(xs)
+            #    top = np.min(ys)
+            #    bottom = np.max(ys)
 
-                if left > 0 and top > 0 and right < width and bottom < height:
-                    boxes.append([left, top, right, bottom])
-                    total_panels += 1
-                else:
-                    logging.debug("box not considered: at the border")
+            #    if left > 0 and top > 0 and right < width and bottom < height:
+            #        boxes.append([left, top, right, bottom])
+            #        total_panels += 1
+            #    else:
+            #        logging.debug("box not considered: at the border")
 
             if plot:
                 f, ax = plt.subplots(1, figsize=(16, 9))
