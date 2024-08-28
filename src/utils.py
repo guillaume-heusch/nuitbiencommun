@@ -1,5 +1,8 @@
 import csv
+import logging
 from pathlib import Path
+
+import numpy as np
 
 
 def read_annotation_file(filename: Path) -> list:
@@ -53,7 +56,9 @@ def read_annotation_file_for_detection(filename: Path) -> dict:
     return targets
 
 
-def convert_polygons_to_bounding_boxes(polygons: list) -> list:
+def convert_polygons_to_bounding_boxes(
+    polygons: list, height: int, width: int
+) -> list:
     """
     Convert polygons to bounding boxes.
 
@@ -64,6 +69,10 @@ def convert_polygons_to_bounding_boxes(polygons: list) -> list:
     ----------
     polygons: list
         The list of polygons
+    height: int
+        The height of the image
+    width: int
+        The width of the image
 
     Returns
     -------

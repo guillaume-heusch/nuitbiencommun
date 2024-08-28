@@ -60,7 +60,7 @@ class FasterRCNNModule(pl.LightningModule):
         return model
 
     def forward(self, images, target=None):
-        return self.model(images, targets)
+        return self.model(images, target)
 
     def training_step(self, batch, batch_idx):
         images, targets = batch

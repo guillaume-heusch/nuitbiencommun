@@ -2,6 +2,7 @@ import logging
 
 import cv2
 import hydra
+import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
