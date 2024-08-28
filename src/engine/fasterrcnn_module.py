@@ -7,23 +7,31 @@ import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.rpn import AnchorGenerator, RPNHead
 
+from src.engine.compute_metrics import MetricsComputer
 
 class FasterRCNNModule(pl.LightningModule):
     """ """
 
     def __init__(self, pretrained_weights_path=None):
+        """
+        """
         super().__init__()
         self.model = self._get_model(num_classes=2)
         self.model.train()
-        self.validation_f_score = []
 
-    def _get_model(self, num_classes: int, pretrained=True):
+        # specify an IoU threshold here
+        self.metrics_computer = MetricsComputer()
+        self.val_f_score_steps = []
+        self.val_f_score_epochs = []
+
+    def _get_model(self, num_classes: int):
         """
         Returns the model defined the config params
-        """
 
+        """
         model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-            pretrained=pretrained, pretrained_backbone=False
+            weights="FasterRCNN_ResNet50_FPN_Weights.COCO_V1", 
+            weights_backbone="IMAGENET1K_V1"
         )
 
         # number of different feature map sizes output by the backbone model
@@ -32,7 +40,7 @@ class FasterRCNNModule(pl.LightningModule):
         # custom anchor generator, tailored for our specific problem: small characters
         anchor_generator = AnchorGenerator(
             sizes=tuple([(8, 16, 32) for _ in range(n_features_map_sizes)]),
-            aspect_ratios=tuple(
+aspect_ratios=tuple(
                 [(1.0, 1.5, 3.0) for _ in range(n_features_map_sizes)]
             ),
         )
@@ -50,7 +58,6 @@ class FasterRCNNModule(pl.LightningModule):
         model.roi_heads.box_predictor = FastRCNNPredictor(
             in_features, num_classes
         )
-
         return model
 
     def forward(self, images, target=None):
@@ -66,15 +73,25 @@ class FasterRCNNModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         images, targets = batch
-        # the model is not in train mode -> error
-        # it returns the predictions instead
-        # find a way to compute something else for validation
-        # loss_dict = self.model(images, targets)
-        # print(loss_dict)
-        # losses = sum(loss for loss in loss_dict.values())
-        # batch_size = len(batch[0])
-        # self.log("val_loss", losses, batch_size=batch_size)
-        # return losses
+        predictions = self.model(images)
+        f_score = self.metrics_computer.run_on_batch(predictions, targets)
+        self.val_f_score_steps.append(f_score)
+
+
+    def on_validation_epoch_end(self):
+        f_score = np.mean(self.val_f_score_steps)
+        self.val_f_score_epochs.append(f_score)
+        self.log("val_f_score", f_score)
+        self.val_f_score_steps.clear()
+
+    def on_train_end(self):
+        """
+        """
+        print("=" * 50)
+        print("--- Validation F-scores ---")
+        for i, f in enumerate(self.val_f_score_epochs):
+            print(f"{i} -> {f}")
+        print("=" * 50)
 
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
