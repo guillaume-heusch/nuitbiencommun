@@ -6,19 +6,29 @@ class MetricsComputer():
     Class responsible to compute various metrics
     related to object detection.
 
-    Count True Positives, False Positives, False Negatives
-    tp = len(matches)
-    fp = len(predictions) - tp
-    fn = len(ground_truth) - tp
+    The user has access to:
+
+        - run_on_batch: compute metrics
+        - get_precision
+        - get_recall
+        - get_f_score
 
     Attributes
     ---------
+    iou_threshold: float
+        Threshold to consider for a match between
+        a ground truth box and a predicted box
+    f_score: float
+        The F-score of the batch
 
     """
-    def __init__(self):
+    def __init__(self, iou_threshold: float = 0.5):
         """
         """
-        self.iou_threshold = 0.5
+        self.iou_threshold = iou_threshold
+        self.precision = 0
+        self.recall = 0
+        self.f_score = 0
 
     def run_on_batch(self, predictions: list, ground_truth: list):
         """
@@ -32,9 +42,14 @@ class MetricsComputer():
             The list of ground truth 
 
         """
+        n_tp = n_fp = n_fn = 0
         for pred, gt in zip(predictions, ground_truth):
-            self.run_on_image(pred, gt)
-
+            tp, fp, fn = self.run_on_image(pred, gt)
+            n_tp += tp
+            n_fp += fp
+            n_fn += fn
+        self.f_score = self._compute_f_score(n_tp, n_fp, n_fn) 
+        return self.f_score
 
     def run_on_image(self, predictions: dict, ground_truth: dict):
         """
@@ -42,19 +57,26 @@ class MetricsComputer():
 
         Parameters
         ----------
-        predictions: dict
-            The predictions (boxes, labels, scores)
-        ground_truth: dict
-            The ground truth (boxes, lables, scores)
+        predictions: list
+            The predictions for this batch (dict of boxes, labels, scores)
+        ground_truth: list
+            The ground truth for this batch (dict of boxes, labels, scores)
 
-         
+        Returns
+        -------
+        tp: int
+            The number of true positives in the image
+        fp: int
+            The number of false positives in the image
+        fn: int
+            The number of false negatives in the image
+
         """
         matches = self._match_boxes(predictions["boxes"], ground_truth["boxes"])
         tp = len(matches)
         fp = len(predictions["boxes"]) - tp
         fn = len(ground_truth["boxes"]) - tp
-
-        print(tp, fp, fn)
+        return tp, fp, fn
 
     def _match_boxes(self, pred_boxes: list, gt_boxes: list) -> list:
         """
@@ -91,7 +113,6 @@ class MetricsComputer():
 
         # Find the maximum weighted bipartite matching
         matching = nx.max_weight_matching(G, maxcardinality=True)
-        print(matching)
 
         # Convert the matching to a list of pairs
         matches = []
@@ -134,3 +155,47 @@ class MetricsComputer():
         union = float(box1Area + box2Area - interArea)
         iou = interArea / union if union != 0 else 0
         return iou
+
+    def _compute_f_score(self, true_positives: int, false_positives: int, false_negatives: int) -> float:
+        """
+        Compute the F-score, precision, and recall.
+
+        Note: the attributes precision and recall are set in this function
+
+        Parameters
+        ----------
+        true_positives: int
+            Number of true positives
+        false_positives: int
+            Number of false positives
+        false_negatives: int 
+            Number of false negatives
+
+        Returns
+        -------
+        float: 
+            the F-score
+
+        """
+        # Compute precision
+        if true_positives + false_positives > 0:
+            precision = true_positives / float(true_positives + false_positives)
+        else:
+            precision = 0.0
+
+        # Compute recall
+        if true_positives + false_negatives > 0:
+            recall = true_positives / float(true_positives + false_negatives)
+        else:
+            recall = 0.0
+
+        # Compute F-score
+        if precision + recall > 0:
+            f_score = 2 * (precision * recall) / (precision + recall)
+        else:
+            f_score = 0.0
+
+        self.precision = precision
+        self.recall = recall
+
+        return f_score
