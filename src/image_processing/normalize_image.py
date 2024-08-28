@@ -7,7 +7,8 @@ from albumentations.pytorch import ToTensorV2
 
 def denormalize_mask_after_segmentation(mask, resize_dim: list) -> np.ndarray:
     """
-    Convert a binary mask of type torch.Tensor into a binary uint8 image as numpy array
+    Convert a binary mask of type torch.Tensor
+    into a binary uint8 image as numpy array
 
     Parameters
     ----------

@@ -3,12 +3,10 @@ from pathlib import Path
 
 import albumentations as A
 import cv2
-import numpy as np
 import torch
 from albumentations.pytorch import ToTensorV2
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
-from torchvision.transforms import functional as F
 
 
 class DetectionDataLoader(Dataset):

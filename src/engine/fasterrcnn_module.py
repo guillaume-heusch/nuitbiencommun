@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -9,12 +7,12 @@ from torchvision.models.detection.rpn import AnchorGenerator, RPNHead
 
 from src.engine.compute_metrics import MetricsComputer
 
+
 class FasterRCNNModule(pl.LightningModule):
     """ """
 
     def __init__(self, pretrained_weights_path=None):
-        """
-        """
+        """ """
         super().__init__()
         self.model = self._get_model(num_classes=2)
         self.model.train()
@@ -30,17 +28,18 @@ class FasterRCNNModule(pl.LightningModule):
 
         """
         model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-            weights="FasterRCNN_ResNet50_FPN_Weights.COCO_V1", 
-            weights_backbone="IMAGENET1K_V1"
+            weights="FasterRCNN_ResNet50_FPN_Weights.COCO_V1",
+            weights_backbone="IMAGENET1K_V1",
         )
 
         # number of different feature map sizes output by the backbone model
         n_features_map_sizes = 5
 
-        # custom anchor generator, tailored for our specific problem: small characters
+        # custom anchor generator
+        # TODO: analyze the training data for aspect ratio
         anchor_generator = AnchorGenerator(
             sizes=tuple([(8, 16, 32) for _ in range(n_features_map_sizes)]),
-aspect_ratios=tuple(
+            aspect_ratios=tuple(
                 [(1.0, 1.5, 3.0) for _ in range(n_features_map_sizes)]
             ),
         )
@@ -67,7 +66,6 @@ aspect_ratios=tuple(
         images, targets = batch
         loss_dict = self.model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
-        batch_size = len(batch[0])
         self.log("train_loss", losses)
         return losses
 
@@ -77,7 +75,6 @@ aspect_ratios=tuple(
         f_score = self.metrics_computer.run_on_batch(predictions, targets)
         self.val_f_score_steps.append(f_score)
 
-
     def on_validation_epoch_end(self):
         f_score = np.mean(self.val_f_score_steps)
         self.val_f_score_epochs.append(f_score)
@@ -85,8 +82,7 @@ aspect_ratios=tuple(
         self.val_f_score_steps.clear()
 
     def on_train_end(self):
-        """
-        """
+        """ """
         print("=" * 50)
         print("--- Validation F-scores ---")
         for i, f in enumerate(self.val_f_score_epochs):

@@ -8,12 +8,10 @@ from pathlib import Path
 
 import click
 import cv2
-import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 
-from src.utils import read_annotation_file
-from src.utils import convert_polygons_to_bounding_boxes
+from src.utils import convert_polygons_to_bounding_boxes, read_annotation_file
 
 # TODO: improve logging
 logging.basicConfig(level=logging.INFO)
@@ -81,7 +79,7 @@ def process(**kwargs):
                 logging.debug(f"There are {len(polygons)} panels")
 
             boxes = convert_polygons_to_bounding_boxes(polygons)
-            #for p in polygons:
+            # for p in polygons:
 
             #    xs = [int(p[i]) for i in range(len(p)) if i % 2 == 0]
             #    ys = [int(p[i]) for i in range(len(p)) if i % 2 == 1]

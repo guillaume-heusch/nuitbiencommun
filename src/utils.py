@@ -38,7 +38,7 @@ def read_annotation_file_for_detection(filename: Path) -> dict:
     -------
     dict:
         The "targets" dictionary, containing labels and bounding boxes
-    
+
     """
     targets = {}
     targets["boxes"] = []
@@ -47,10 +47,11 @@ def read_annotation_file_for_detection(filename: Path) -> dict:
         csvreader = csv.reader(file)
         for row in csvreader:
             targets["labels"].append(int(row[0]))
-            box = [int(row[i]) for i in range(1,5)]
+            box = [int(row[i]) for i in range(1, 5)]
             targets["boxes"].append(box)
 
     return targets
+
 
 def convert_polygons_to_bounding_boxes(polygons: list) -> list:
     """
@@ -62,11 +63,11 @@ def convert_polygons_to_bounding_boxes(polygons: list) -> list:
     Parameters
     ----------
     polygons: list
-        The list of polygons 
+        The list of polygons
 
     Returns
     -------
-    list: 
+    list:
         The list of bounding boxes
 
     """
@@ -83,10 +84,7 @@ def convert_polygons_to_bounding_boxes(polygons: list) -> list:
 
         if left > 0 and top > 0 and right < width and bottom < height:
             boxes.append([left, top, right, bottom])
-            total_panels += 1
         else:
             logging.debug("box not considered: at the border")
 
     return boxes
-
-

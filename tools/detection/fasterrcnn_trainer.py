@@ -4,11 +4,10 @@ import torch
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
+from torch.utils.data import random_split
 
 from src.data.detection_dataloader import DetectionDataLoader
 from src.engine.fasterrcnn_module import FasterRCNNModule
-
-from torch.utils.data import random_split
 
 
 @hydra.main(
@@ -33,7 +32,9 @@ def run_training(cfg: DictConfig):
     print(f"train dataset size = {train_size}")
     print(f"validation dataset size = {val_size}")
 
-    train_dataset, valid_dataset = random_split(dataset, [train_size, val_size])
+    train_dataset, valid_dataset = random_split(
+        dataset, [train_size, val_size]
+    )
 
     detector = FasterRCNNModule(cfg)
 

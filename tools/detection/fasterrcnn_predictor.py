@@ -1,21 +1,18 @@
+import logging
+
 import cv2
 import hydra
-import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 from omegaconf import DictConfig
 
-import torchvision
-import logging
-
+from src.engine.compute_metrics import MetricsComputer
 from src.engine.fasterrcnn_module import FasterRCNNModule
-from src.evaluate_utils import get_tp_fp_fn, compute_F1_score, keep_best_predictions
 from src.utils import read_annotation_file_for_detection
 
-from src.engine.compute_metrics import MetricsComputer
-
 logger = logging.getLogger("PREDICTOR")
+
 
 @hydra.main(
     version_base=None,
@@ -47,24 +44,22 @@ def run_detection(cfg: DictConfig):
 
     # only keep the best predictions
     # Note: there's one image in the batch, hence the 0
-    #score_threshold = 0.3
-    #predictions[0] = keep_best_predictions(predictions[0], score_threshold)
+    # score_threshold = 0.3
+    # predictions[0] = keep_best_predictions(predictions[0], score_threshold)
 
     # perform non-max suppression
     boxes = predictions[0]["boxes"]
-    #scores = predictions[0]["scores"]
-    #index_of_boxes_to_keep = torchvision.ops.nms(boxes, scores, 0.1)
-    #boxes = torch.index_select(boxes, 0, torch.LongTensor(index_of_boxes_to_keep))
+    # scores = predictions[0]["scores"]
+    # index_of_boxes_to_keep = torchvision.ops.nms(boxes, scores, 0.1)
+    # boxes = torch.index_select(boxes, 0, torch.LongTensor(index_of_boxes_to_keep))
 
-
-    # Compute metrics 
+    # Compute metrics
     if cfg.annotation_filename is not None:
         targets = read_annotation_file_for_detection(cfg.annotation_filename)
         targets = [targets]
         metrics_computer = MetricsComputer()
         f_score = metrics_computer.run_on_batch(predictions, targets)
         print(f_score)
-
 
     if cfg.plot:
         boxes = boxes.detach().numpy()
@@ -82,7 +77,6 @@ def run_detection(cfg: DictConfig):
             )
             ax.add_patch(rect)
         plt.show()
-
 
 
 if __name__ == "__main__":

@@ -1,7 +1,8 @@
-import numpy as np
 import networkx as nx
+import numpy as np
 
-class MetricsComputer():
+
+class MetricsComputer:
     """
     Class responsible to compute various metrics
     related to object detection.
@@ -22,9 +23,9 @@ class MetricsComputer():
         The F-score of the batch
 
     """
+
     def __init__(self, iou_threshold: float = 0.5):
-        """
-        """
+        """ """
         self.iou_threshold = iou_threshold
         self.precision = 0
         self.recall = 0
@@ -39,7 +40,7 @@ class MetricsComputer():
         predictions: list
             The list of predictions for this batch
         ground_truth: dict
-            The list of ground truth 
+            The list of ground truth
 
         """
         n_tp = n_fp = n_fn = 0
@@ -48,7 +49,7 @@ class MetricsComputer():
             n_tp += tp
             n_fp += fp
             n_fn += fn
-        self.f_score = self._compute_f_score(n_tp, n_fp, n_fn) 
+        self.f_score = self._compute_f_score(n_tp, n_fp, n_fn)
         return self.f_score
 
     def run_on_image(self, predictions: dict, ground_truth: dict):
@@ -72,7 +73,9 @@ class MetricsComputer():
             The number of false negatives in the image
 
         """
-        matches = self._match_boxes(predictions["boxes"], ground_truth["boxes"])
+        matches = self._match_boxes(
+            predictions["boxes"], ground_truth["boxes"]
+        )
         tp = len(matches)
         fp = len(predictions["boxes"]) - tp
         fn = len(ground_truth["boxes"]) - tp
@@ -82,14 +85,14 @@ class MetricsComputer():
         """
         Match a prediction box to a ground truth box using
         the Maximum Weighted Bipartite Matching algorithm.
-    
+
         Parameters
         ----------
         pred_boxes: list
             list of predictions bounding boxes
         gt_boxes: list
             list of ground truth bounding boxes
-        
+
         Returns
         -------
         list:
@@ -156,7 +159,9 @@ class MetricsComputer():
         iou = interArea / union if union != 0 else 0
         return iou
 
-    def _compute_f_score(self, true_positives: int, false_positives: int, false_negatives: int) -> float:
+    def _compute_f_score(
+        self, true_positives: int, false_positives: int, false_negatives: int
+    ) -> float:
         """
         Compute the F-score, precision, and recall.
 
@@ -168,18 +173,20 @@ class MetricsComputer():
             Number of true positives
         false_positives: int
             Number of false positives
-        false_negatives: int 
+        false_negatives: int
             Number of false negatives
 
         Returns
         -------
-        float: 
+        float:
             the F-score
 
         """
         # Compute precision
         if true_positives + false_positives > 0:
-            precision = true_positives / float(true_positives + false_positives)
+            precision = true_positives / float(
+                true_positives + false_positives
+            )
         else:
             precision = 0.0
 
