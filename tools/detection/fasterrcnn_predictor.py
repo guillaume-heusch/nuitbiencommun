@@ -51,7 +51,7 @@ def run_detection(cfg: DictConfig):
     #predictions[0] = keep_best_predictions(predictions[0], score_threshold)
 
     # perform non-max suppression
-    #boxes = predictions[0]["boxes"]
+    boxes = predictions[0]["boxes"]
     #scores = predictions[0]["scores"]
     #index_of_boxes_to_keep = torchvision.ops.nms(boxes, scores, 0.1)
     #boxes = torch.index_select(boxes, 0, torch.LongTensor(index_of_boxes_to_keep))
@@ -62,7 +62,8 @@ def run_detection(cfg: DictConfig):
         targets = read_annotation_file_for_detection(cfg.annotation_filename)
         targets = [targets]
         metrics_computer = MetricsComputer()
-        metrics_computer.run_on_batch(predictions, targets)
+        f_score = metrics_computer.run_on_batch(predictions, targets)
+        print(f_score)
 
 
     if cfg.plot:
@@ -81,14 +82,6 @@ def run_detection(cfg: DictConfig):
             )
             ax.add_patch(rect)
         plt.show()
-
-
-    #if targets is not None:
-    #    tp, fp, fn = get_tp_fp_fn(image_raw, predictions, targets, score_threshold=0.3, plot=1)
-    #    f_score = compute_F1_score(tp, fp, fn)
-    #    print(f_score)
-    #else:
-    #    _ = get_tp_fp_fn(image_raw, predictions, plot=1)
 
 
 
