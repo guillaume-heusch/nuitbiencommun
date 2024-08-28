@@ -8,6 +8,8 @@ from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from src.data.detection_dataloader import DetectionDataLoader
 from src.engine.fasterrcnn_module import FasterRCNNModule
 
+from torch.utils.data import random_split
+
 
 @hydra.main(
     version_base=None,
@@ -20,9 +22,20 @@ def run_training(cfg: DictConfig):
     detection of panels with numbers
 
     """
-    detector = FasterRCNNModule(cfg)
+    torch.manual_seed(cfg.seed)
 
-    train_dataset = DetectionDataLoader(cfg)
+    # data
+    dataset = DetectionDataLoader(cfg)
+    dataset_size = len(dataset)
+    train_size = int(cfg.data.train_ratio * dataset_size)
+    val_size = dataset_size - train_size
+
+    print(f"train dataset size = {train_size}")
+    print(f"validation dataset size = {val_size}")
+
+    train_dataset, valid_dataset = random_split(dataset, [train_size, val_size])
+
+    detector = FasterRCNNModule(cfg)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -33,13 +46,12 @@ def run_training(cfg: DictConfig):
         collate_fn=collate_fn,
     )
 
-    # TODO: the validation set should be different ;)
     val_loader = torch.utils.data.DataLoader(
-        train_dataset,
+        valid_dataset,
         batch_size=1,
         shuffle=False,
         pin_memory=False,
-        num_workers=1,
+        num_workers=cfg.data.num_workers,
         collate_fn=collate_fn,
     )
 
