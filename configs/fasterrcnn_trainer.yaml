@@ -1,10 +1,12 @@
-train_dir: "./training-detection" 
-save_model_dir: "./fasterrcnn-models"
+train_dir: "./detection-dataset" 
+save_model_dir: "./fasterrcnn-models-iteration-2"
+seed: 3 # seed to initialize the random split between train and validation sets
 data:
   extension: ".jpg"
   num_workers: 1
+  train_ratio: 0.8 # train / validation ratio
 train:
     learning_rate: 0.001
     batch_size: 8
-    max_epochs: 10
+    max_epochs: 20 
     epoch_refresh_rate: 1
