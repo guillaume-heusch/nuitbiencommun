@@ -18,6 +18,13 @@ logging.basicConfig(level=logging.INFO)
 @click.command()
 @click.argument("annotations_dir", type=click.Path(exists=True))
 @click.option(
+    "-n",
+    "--ngaussians",
+    type=int,
+    default=3,
+    help="Number of components in GMM",
+)
+@click.option(
     "-e",
     "--ext",
     type=str,
@@ -34,6 +41,7 @@ def process(**kwargs):
     """
     annotations_dir = Path(kwargs["annotations_dir"])
     annotation_file_extension = kwargs["ext"]
+    n_gaussians = kwargs["ngaussians"]
     verbose = kwargs["verbose"]
 
     aspect_ratios = []
@@ -54,7 +62,7 @@ def process(**kwargs):
     aspect_ratios = np.array(aspect_ratios).reshape(-1, 1)
 
     # fit a GMM on aspect ratios (this will give the means)
-    gmm = GaussianMixture(n_components=3)
+    gmm = GaussianMixture(n_components=n_gaussians)
     gmm.fit(aspect_ratios)
 
     # Print the (interesting) model parameters
