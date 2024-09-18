@@ -3,8 +3,6 @@ import logging
 from pathlib import Path
 
 import numpy as np
-import torch
-import torchvision
 
 
 def read_annotation_file(filename: Path) -> list:
@@ -99,4 +97,3 @@ def convert_polygons_to_bounding_boxes(
             logging.debug("box not considered: at the border")
 
     return boxes
-

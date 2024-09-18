@@ -4,14 +4,13 @@ import torch
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from torch.utils.data import random_split
 
 from src.data.detection_dataloader import (
+    DetectionDataLoader,
     get_train_and_valid_lists,
     get_train_transform,
     get_valid_transform,
 )
-from src.data.detection_dataloader import DetectionDataLoader
 from src.engine.fasterrcnn_module import FasterRCNNModule
 
 
@@ -27,7 +26,7 @@ def run_training(cfg: DictConfig):
 
     """
 
-    # get the list of annotations files 
+    # get the list of annotations files
     list_train, list_valid = get_train_and_valid_lists(cfg)
 
     train_dataset = DetectionDataLoader(
@@ -47,7 +46,7 @@ def run_training(cfg: DictConfig):
         train_dataset,
         batch_size=cfg.train.batch_size,
         shuffle=True,
-        #pin_memory=False,
+        pin_memory=False,
         num_workers=cfg.data.num_workers,
         collate_fn=collate_fn,
     )
@@ -56,7 +55,7 @@ def run_training(cfg: DictConfig):
         valid_dataset,
         batch_size=1,
         shuffle=False,
-        #pin_memory=False,
+        pin_memory=False,
         num_workers=cfg.data.num_workers,
         collate_fn=collate_fn,
     )

@@ -2,22 +2,48 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torchvision
+from omegaconf import DictConfig
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.rpn import AnchorGenerator, RPNHead
 
 from src.engine.compute_metrics import MetricsComputer
 
-from torch.optim import Adam
 
 class FasterRCNNModule(pl.LightningModule):
-    """ """
+    """
+    Class implementing a Faster R-CNN as a PyTorch Lightning module
 
-    def __init__(self, cfg=None, pretrained_weights_path=None):
-        """ """
+    Attributes
+    ----------
+    model: torchvision.models.detection.fasterrcnn_resnet50_fpn
+        The Faster R-CNN model
+    learning_rate: float
+        The learning rate
+    metrics_computer: MetricsComputer
+        The metrics computer
+    val_f_score_steps: list
+        the F-score on the validation data at each step
+    val_f_score_epochs: list
+        the F-score on the validation data at each epochs
+
+    """
+
+    def __init__(self, cfg: DictConfig = None):
+        """
+        Init function
+
+        Note that the config is only needed for training.
+
+        Parameters
+        ----------
+        cfg: DictConfig
+            The configuration
+
+        """
         super().__init__()
         self.model = self._get_model(num_classes=2)
 
-        # config is used for training
+        # config is used for training, not for inference
         if cfg is not None:
             self.model.train()
             self.learning_rate = cfg.train.learning_rate
@@ -27,7 +53,9 @@ class FasterRCNNModule(pl.LightningModule):
             self.val_f_score_steps = []
             self.val_f_score_epochs = []
 
-    def _get_model(self, num_classes: int):
+    def _get_model(
+        self, num_classes: int
+    ) -> torchvision.models.detection.fasterrcnn_resnet50_fpn:
         """
         Returns the model defined the config params
 
@@ -36,7 +64,6 @@ class FasterRCNNModule(pl.LightningModule):
             weights="FasterRCNN_ResNet50_FPN_Weights.COCO_V1",
             weights_backbone="IMAGENET1K_V1",
         )
-
         # number of different feature map sizes output by the backbone model
         n_features_map_sizes = 5
 
@@ -54,11 +81,10 @@ class FasterRCNNModule(pl.LightningModule):
         model.rpn.head = RPNHead(
             256, anchor_generator.num_anchors_per_location()[0]
         )
-
         # get number of input features for the classifier
         in_features = model.roi_heads.box_predictor.cls_score.in_features
 
-        # replace the pre-trained head with a new one
+        # replace the pre-trained head with a new one (right number of classes)
         model.roi_heads.box_predictor = FastRCNNPredictor(
             in_features, num_classes
         )
@@ -103,28 +129,3 @@ class FasterRCNNModule(pl.LightningModule):
             optimizer, step_size=3, gamma=0.1
         )
         return [optimizer], [lr_scheduler]
-
-
-    #def configure_optimizers(self):
-    #    # Parameters with different learning rates
-    #    params = [
-    #        {"params": self.model.backbone.parameters(), "lr": self.learning_rate / 10},
-    #        {"params": self.model.rpn.parameters(), "lr": self.learning_rate},
-    #        {"params": self.model.roi_heads.parameters(), "lr": self.learning_rate}
-    #    ]
-
-    #    # Create the optimizer
-    #    #optimizer = Adam(params, lr=self.learning_rate, weight_decay=1e-4)
-    #    optimizer = torch.optim.SGD(params, lr=self.learning_rate, weight_decay=1e-4)
-
-    #    # Learning rate scheduler
-    #    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
-
-    #    return {
-    #        "optimizer": optimizer,
-    #        "lr_scheduler": {
-    #            "scheduler": scheduler,
-    #            "interval": "epoch",
-    #            "frequency": 1
-    #        }
-    #    }

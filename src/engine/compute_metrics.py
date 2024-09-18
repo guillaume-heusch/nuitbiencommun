@@ -19,19 +19,31 @@ class MetricsComputer:
     iou_threshold: float
         Threshold to consider for a match between
         a ground truth box and a predicted box
+    precision: float
+        The precision over the batch
+    recall: float
+        The recall over the batch
     f_score: float
-        The F-score of the batch
+        The F-score over the batch
 
     """
 
     def __init__(self, iou_threshold: float = 0.5):
-        """ """
-        self.iou_threshold = iou_threshold
-        self.precision = 0
-        self.recall = 0
-        self.f_score = 0
+        """
+        Init function
 
-    def run_on_batch(self, predictions: list, ground_truth: list):
+        Parameters
+        ----------
+        iou_threshold: float
+            Threshold to consider for a match between
+            a ground truth box and a predicted box
+        """
+        self.iou_threshold = iou_threshold
+        self.precision = 0.0
+        self.recall = 0.0
+        self.f_score = 0.0
+
+    def run_on_batch(self, predictions: list, ground_truth: list) -> float:
         """
         Runs the computation of metrics on a batch of images
 
@@ -41,6 +53,11 @@ class MetricsComputer:
             The list of predictions for this batch
         ground_truth: dict
             The list of ground truth
+
+        Returns
+        -------
+        float:
+            The F-score over the batch
 
         """
         n_tp = n_fp = n_fn = 0

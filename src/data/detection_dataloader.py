@@ -1,5 +1,7 @@
 import csv
+import random
 from pathlib import Path
+from typing import Tuple
 
 import albumentations as A
 import cv2
@@ -8,9 +10,8 @@ from albumentations.pytorch import ToTensorV2
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
 
-import random
 
-def get_train_and_valid_lists(cfg: DictConfig) -> list:
+def get_train_and_valid_lists(cfg: DictConfig) -> Tuple[list, list]:
     """
     Parse the directory with data and split into train
     and validation subsets
@@ -25,16 +26,7 @@ def get_train_and_valid_lists(cfg: DictConfig) -> list:
 
     """
     dataset_path = cfg.train_dir
-    annotations_list = list(
-        (Path(dataset_path) / "annotations").iterdir()
-    )
-    #image_folder = Path(self.dataset_path) / "images"
-    #self.images_list = [
-    #    image_folder
-    #    / Path(annotation_path.stem).with_suffix(cfg.data.extension)
-    #    for annotation_path in self.annotations_list
-    #]
-
+    annotations_list = list((Path(dataset_path) / "annotations").iterdir())
     annotations_list.sort()
     random.seed(cfg.seed)
     random.shuffle(annotations_list)
@@ -44,14 +36,18 @@ def get_train_and_valid_lists(cfg: DictConfig) -> list:
     annotations_list_train = annotations_list[:train_size]
     annotations_list_valid = annotations_list[train_size:]
 
+    # TODO: use logger instead of print
     print(f"train dataset size = {len(annotations_list_train)}")
     print(f"validation dataset size = {len(annotations_list_valid)}")
 
     return annotations_list_train, annotations_list_valid
 
+
 def get_train_transform():
     """
-    Defines the augmentations for the training data
+    Defines the augmentations for the training data.
+
+    TODO: normalization parameters should be computed on the training set
 
     Returns
     -------
@@ -59,32 +55,37 @@ def get_train_transform():
         The transformations.
 
     """
-    return A.Compose([
-        #A.RandomSizedBBox(min_area=0.1, max_area=1.0, p=0.5),
-        #A.RandomBrightnessContrast(p=0.2),
-        #A.HueSaturationValue(p=0.2),
-        #A.RGBShift(p=0.2),
-        #A.RandomGamma(p=0.2),
-        #A.HorizontalFlip(p=0.5),
-        #A.VerticalFlip(p=0.1),
-        #A.Rotate(limit=10, p=0.2),
-        #A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=15, p=0.2),
-        #A.Resize(height=800, width=800),
-
-        # WARNING: don't use ImageNet's normalization parameters !!!
-        A.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-            max_pixel_value=255.0
+    return A.Compose(
+        [
+            # A.RandomSizedBBox(min_area=0.1, max_area=1.0, p=0.5),
+            # A.RandomBrightnessContrast(p=0.2),
+            # A.HueSaturationValue(p=0.2),
+            # A.RGBShift(p=0.2),
+            # A.RandomGamma(p=0.2),
+            # A.HorizontalFlip(p=0.5),
+            # A.VerticalFlip(p=0.1),
+            # A.Rotate(limit=10, p=0.2),
+            # A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=15, p=0.2),
+            # A.Resize(height=800, width=800),
+            # WARNING: don't use ImageNet's normalization parameters !!!
+            A.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+                max_pixel_value=255.0,
+            ),
+            ToTensorV2(),
+        ],
+        bbox_params=A.BboxParams(
+            format="pascal_voc", label_fields=["class_labels"]
         ),
-        ToTensorV2()
-    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels']))
+    )
+
 
 def get_valid_transform():
     """
     Defines the augmentations for the validation data
-        
-    # WARNING: don't use ImageNet's normalization parameters !!!
+
+    TODO: normalization parameters should be computed on the training set
 
     Returns
     -------
@@ -92,14 +93,19 @@ def get_valid_transform():
         The transformations.
 
     """
-    return A.Compose([
-        A.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-            max_pixel_value=255.0
+    return A.Compose(
+        [
+            A.Normalize(
+                mean=[0.485, 0.456, 0.406],
+                std=[0.229, 0.224, 0.225],
+                max_pixel_value=255.0,
+            ),
+            ToTensorV2(),
+        ],
+        bbox_params=A.BboxParams(
+            format="pascal_voc", label_fields=["class_labels"]
         ),
-        ToTensorV2()
-    ], bbox_params=A.BboxParams(format='pascal_voc', label_fields=['class_labels']))
+    )
 
 
 class DetectionDataLoader(Dataset):
@@ -111,6 +117,10 @@ class DetectionDataLoader(Dataset):
     cfg: DictConfig
         The configuration
         the list of (albumentations) transforms
+    annotations_list: list
+        The list of annotation files
+    dataset_path: str
+        Path to the training (and validation) data
 
     """
 
@@ -122,13 +132,16 @@ class DetectionDataLoader(Dataset):
         ----------
         cfg: DictConfig
             The configuration
+        annotations_list: list
+            The list of annotation files
+        transforms: albumentations.core.composition.Compose
+            The transformations to be applied to the image
 
         """
-        self.annotations_list = annotations_list
         self.cfg = cfg
-        self.dataset_path = cfg.train_dir
-
+        self.annotations_list = annotations_list
         self.transforms = transforms
+        self.dataset_path = cfg.train_dir
 
         image_folder = Path(self.dataset_path) / "images"
         self.images_list = [
@@ -139,7 +152,7 @@ class DetectionDataLoader(Dataset):
         self.images_list.sort()
         self.annotations_list.sort()
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, dict]:
         """
         Returns image and mask for the selected index as torch tensors.
 
@@ -196,5 +209,9 @@ class DetectionDataLoader(Dataset):
 
         return image, target
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns the length of the dataset
+
+        """
         return len(self.annotations_list)

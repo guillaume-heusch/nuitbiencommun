@@ -1,5 +1,0 @@
-image_filename: "./detection-dataset/images/1622-frame0001.jpg"
-annotation_filename: "./detection-dataset/annotations/1622-frame0001.csv"
-plot: True
-model:
-  ckpt_file: "fasterrcnn-models/model-epoch=07.ckpt"
