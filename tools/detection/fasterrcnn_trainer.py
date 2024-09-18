@@ -6,6 +6,11 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from torch.utils.data import random_split
 
+from src.data.detection_dataloader import (
+    get_train_and_valid_lists,
+    get_train_transform,
+    get_valid_transform,
+)
 from src.data.detection_dataloader import DetectionDataLoader
 from src.engine.fasterrcnn_module import FasterRCNNModule
 
@@ -21,19 +26,19 @@ def run_training(cfg: DictConfig):
     detection of panels with numbers
 
     """
-    torch.manual_seed(cfg.seed)
 
-    # data
-    dataset = DetectionDataLoader(cfg)
-    dataset_size = len(dataset)
-    train_size = int(cfg.data.train_ratio * dataset_size)
-    val_size = dataset_size - train_size
+    # get the list of annotations files 
+    list_train, list_valid = get_train_and_valid_lists(cfg)
 
-    print(f"train dataset size = {train_size}")
-    print(f"validation dataset size = {val_size}")
-
-    train_dataset, valid_dataset = random_split(
-        dataset, [train_size, val_size]
+    train_dataset = DetectionDataLoader(
+        cfg,
+        annotations_list=list_train,
+        transforms=get_train_transform(),
+    )
+    valid_dataset = DetectionDataLoader(
+        cfg,
+        annotations_list=list_valid,
+        transforms=get_valid_transform(),
     )
 
     detector = FasterRCNNModule(cfg)
@@ -42,7 +47,7 @@ def run_training(cfg: DictConfig):
         train_dataset,
         batch_size=cfg.train.batch_size,
         shuffle=True,
-        pin_memory=False,
+        #pin_memory=False,
         num_workers=cfg.data.num_workers,
         collate_fn=collate_fn,
     )
@@ -51,7 +56,7 @@ def run_training(cfg: DictConfig):
         valid_dataset,
         batch_size=1,
         shuffle=False,
-        pin_memory=False,
+        #pin_memory=False,
         num_workers=cfg.data.num_workers,
         collate_fn=collate_fn,
     )
@@ -67,7 +72,7 @@ def run_training(cfg: DictConfig):
     )
 
     trainer = pl.Trainer(
-        accelerator="cpu",
+        accelerator=cfg.accelerator,
         devices=1,
         max_epochs=cfg.train.max_epochs,
         callbacks=[
