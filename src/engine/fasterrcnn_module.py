@@ -7,20 +7,25 @@ from torchvision.models.detection.rpn import AnchorGenerator, RPNHead
 
 from src.engine.compute_metrics import MetricsComputer
 
+from torch.optim import Adam
 
 class FasterRCNNModule(pl.LightningModule):
     """ """
 
-    def __init__(self, pretrained_weights_path=None):
+    def __init__(self, cfg=None, pretrained_weights_path=None):
         """ """
         super().__init__()
         self.model = self._get_model(num_classes=2)
-        self.model.train()
 
-        # specify an IoU threshold here
-        self.metrics_computer = MetricsComputer()
-        self.val_f_score_steps = []
-        self.val_f_score_epochs = []
+        # config is used for training
+        if cfg is not None:
+            self.model.train()
+            self.learning_rate = cfg.train.learning_rate
+
+            # specify an IoU threshold here
+            self.metrics_computer = MetricsComputer()
+            self.val_f_score_steps = []
+            self.val_f_score_epochs = []
 
     def _get_model(self, num_classes: int):
         """
@@ -36,11 +41,11 @@ class FasterRCNNModule(pl.LightningModule):
         n_features_map_sizes = 5
 
         # custom anchor generator
-        # TODO: analyze the training data for aspect ratio
+        # run tools/data/check_bboxes_aspect_ratio.py to get the numbers
         anchor_generator = AnchorGenerator(
             sizes=tuple([(8, 16, 32) for _ in range(n_features_map_sizes)]),
             aspect_ratios=tuple(
-                [(1.0, 1.5, 3.0) for _ in range(n_features_map_sizes)]
+                [(0.6, 0.83, 1.11) for _ in range(n_features_map_sizes)]
             ),
         )
         model.rpn.anchor_generator = anchor_generator
@@ -92,9 +97,34 @@ class FasterRCNNModule(pl.LightningModule):
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(
-            params, lr=0.005, momentum=0.9, weight_decay=0.0005
+            params, lr=self.learning_rate, momentum=0.9, weight_decay=0.0005
         )
         lr_scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer, step_size=3, gamma=0.1
         )
         return [optimizer], [lr_scheduler]
+
+
+    #def configure_optimizers(self):
+    #    # Parameters with different learning rates
+    #    params = [
+    #        {"params": self.model.backbone.parameters(), "lr": self.learning_rate / 10},
+    #        {"params": self.model.rpn.parameters(), "lr": self.learning_rate},
+    #        {"params": self.model.roi_heads.parameters(), "lr": self.learning_rate}
+    #    ]
+
+    #    # Create the optimizer
+    #    #optimizer = Adam(params, lr=self.learning_rate, weight_decay=1e-4)
+    #    optimizer = torch.optim.SGD(params, lr=self.learning_rate, weight_decay=1e-4)
+
+    #    # Learning rate scheduler
+    #    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+
+    #    return {
+    #        "optimizer": optimizer,
+    #        "lr_scheduler": {
+    #            "scheduler": scheduler,
+    #            "interval": "epoch",
+    #            "frequency": 1
+    #        }
+    #    }
