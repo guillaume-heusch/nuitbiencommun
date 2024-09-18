@@ -99,8 +99,8 @@ class MetricsComputer:
             The matches
 
         """
-        pred_boxes = pred_boxes.detach().numpy()
-        gt_boxes = np.array(gt_boxes)
+        pred_boxes = pred_boxes.detach().cpu().numpy()
+        gt_boxes = np.array(gt_boxes.cpu())
 
         # Create a bipartite graph
         G = nx.Graph()
@@ -205,4 +205,5 @@ class MetricsComputer:
         self.precision = precision
         self.recall = recall
 
+        f_score = np.float32(f_score)
         return f_score
