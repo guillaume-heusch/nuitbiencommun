@@ -3,6 +3,8 @@ import logging
 from pathlib import Path
 
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
 
 
 def read_annotation_file(filename: Path) -> list:
@@ -97,3 +99,56 @@ def convert_polygons_to_bounding_boxes(
             logging.debug("box not considered: at the border")
 
     return boxes
+
+
+def save_show_final_result(
+    image: np.ndarray,
+    boxes: np.ndarray,
+    numbers: list,
+    save_filename: str = None,
+    show: bool = False,
+):
+    """
+    Save and / or show the final result
+
+    Displays the original image with bounding boxes
+    around panels, and detected numbers above.
+
+    Parameters
+    ----------
+    image: np.ndarray
+        The image
+    boxes: np.ndarray
+        The bounding boxes coordinates as a 2-d numpy array
+    numbers: list
+        The detected numbers
+    save_filename: str
+        Write the image with detections to the provided filename
+    show: bool
+        Shows the image with detections
+
+    """
+    f, ax = plt.subplots(1, figsize=(16, 9))
+    ax.imshow(image)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for b, n in zip(list(boxes), numbers):
+        rect = Rectangle(
+            (b[0], b[1]),
+            b[2] - b[0],
+            b[3] - b[1],
+            edgecolor="green",
+            facecolor="none",
+            linewidth=2,
+        )
+        ax.add_patch(rect)
+        ax.text(b[0], b[1], n, c="limegreen", size="large", weight="bold")
+
+    if save_filename is not None:
+        save_path = Path(save_filename)
+        parent = save_path.parent.absolute()
+        parent.mkdir(exist_ok=True, parents=True)
+        plt.savefig(save_path)
+    if show:
+        plt.show()
+    plt.close()
