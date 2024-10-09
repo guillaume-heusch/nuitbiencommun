@@ -1,5 +1,7 @@
 from pathlib import Path
+import logging
 
+import csv
 import cv2
 import numpy as np
 import torch
@@ -10,6 +12,7 @@ from omegaconf import DictConfig
 
 from src.engine.fasterrcnn_module import FasterRCNNModule
 
+logger = logging.getLogger("PREDICTOR")
 
 class PanelDetector:
     """
@@ -51,7 +54,41 @@ class PanelDetector:
         self.detector.double()
         self.predictions = None
 
-    def run_on_one_image(self, image: np.ndarray) -> list:
+    def run_on_dir(self):
+        """
+        Run the panel detection on all images in the 
+        provided folder
+
+        Parameters
+        ----------
+        input_dir: str
+            directory containing the images
+        """
+        input_dir = Path(self.cfg.input_dir)
+        image_files = [i for i in input_dir.iterdir() if i.suffix in self.cfg.image_file_extensions]
+        image_files.sort()
+        image_files = image_files[0::self.cfg.frame_step]
+        for count, image_file in enumerate(image_files):
+           
+            annotation_filename = image_file.stem
+            annotation_filename = Path(annotation_filename).with_suffix(".csv")
+            annotation_filename = Path(self.cfg.output_dir) / annotation_filename
+            if annotation_filename.is_file():
+                logger.debug(f"annotation for {image_file.stem} exists, skipping !")
+                continue
+
+            logger.debug(f"Processing frame {image_file.stem} ({count}/{len(image_files)})")
+            image = cv2.imread(str(image_file))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            self.run_on_one_image(image)
+            if self.predictions is None:
+                continue
+            if self.cfg.plot:
+                self.show_predictions(image)
+
+            self.write_predictions(annotation_filename)
+
+    def run_on_one_image(self, image: np.ndarray):
         """
         Run the panel detection on the provided image.
         Image is supposed to be RGB and in the [0-255] range.
@@ -71,8 +108,13 @@ class PanelDetector:
         self.predictions = self.detector(image_batch)[0]
         if self.cfg.show_all_predictions:
             self.show_predictions(image_to_display, "All predictions")
+        if self.predictions["boxes"].size()[0] == 0:
+            logger.warning("No detections in this image")
+            self.predictions = None
+            return
         self.predictions = self._keep_best_predictions(self.predictions)
-        self.show_predictions(image_to_display, "Best predictions")
+        if self.predictions is None:
+            return
         self.predictions = self._non_max_suppression(self.predictions)
 
     def get_predictions(self) -> dict:
@@ -121,6 +163,10 @@ class PanelDetector:
                 predictions_to_keep["labels"].append(label)
                 predictions_to_keep["scores"].append(score)
 
+        
+        if len(predictions_to_keep["boxes"]) == 0:
+            logger.warning("No detections good enough in this image")
+            return None
         predictions_to_keep["boxes"] = torch.vstack(
             predictions_to_keep["boxes"]
         )
@@ -130,6 +176,7 @@ class PanelDetector:
         predictions_to_keep["scores"] = torch.Tensor(
             predictions_to_keep["scores"]
         ).double()
+
         return predictions_to_keep
 
     def _non_max_suppression(self, predictions: dict) -> dict:
@@ -241,3 +288,28 @@ class PanelDetector:
             )
             panel = cv2.cvtColor(panel, cv2.COLOR_RGB2BGR)
             cv2.imwrite(str(panel_filename), panel)
+
+    def write_predictions(self, filename: Path):
+        """
+        Writes prediction to file
+
+        Parameters
+        ----------
+        filename: Path
+            the filename to write the predictions to.
+
+        """
+        # make sure the parent directory exists
+        annotation_dir = filename.parent.resolve()
+        annotation_dir.mkdir(exist_ok=True, parents=True)
+
+        boxes = self.predictions["boxes"]
+        boxes = boxes.detach().numpy()
+
+        # label is first, there is only one class, so label is always one
+        with open(filename, mode="w", newline="") as file:
+            writer = csv.writer(file)
+            for box in boxes:
+                box = [int(b) for b in box]
+                writer.writerow(["1"] + box)
+

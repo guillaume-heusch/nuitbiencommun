@@ -1,8 +1,9 @@
 image_filename: "./detection-dataset/images/1622-frame0001.jpg"
 plot: True
 model:
-  ckpt_file: "fasterrcnn-models/model-epoch=07.ckpt"
+  ckpt_file: "best.ckpt"
 output_dir: "panels-2"
 score_threshold: 0.3
-show_all_predictions: True
-frame_step: 10
+show_all_predictions: False
+show_result: False
+save_filename: null
